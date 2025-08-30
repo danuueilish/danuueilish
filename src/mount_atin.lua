@@ -7,8 +7,8 @@ _G.DE_ATIN_INIT = true
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
 
-local sec  = UI.MountSections["Mount Atin"] -- inner Frame dari section "Mount Atin"
-local root = UI.Window or sec               -- parent aman untuk panel dropdown
+local sec  = UI.MountSections["Mount Atin"] -- inner Frame section "Mount Atin"
+local root = UI.Window or sec                -- parent aman untuk panel dropdown
 
 local Theme = {
   bg   = Color3.fromRGB(24,20,40),
@@ -21,18 +21,7 @@ local Theme = {
 local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p; return c end
 local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.55; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 
--- --- Bersihkan sisa label "Checkpoint" lama di section (anak & cucu) ---
-local function purgeOldCheckpointLabels()
-  for _,d in ipairs(sec:GetDescendants()) do
-    if d:IsA("TextLabel") and d.Text == "Checkpoint" then
-      d:Destroy()
-    end
-  end
-end
-purgeOldCheckpointLabels()
-task.defer(purgeOldCheckpointLabels) -- kalau ada skrip lama nambah belakangan, sapu lagi
-
--- --- Data titik ---
+-- ── Data titik
 local points = {
   {"Basecamp",               Vector3.new(  16.501,   54.470, -1082.821)},
   {"Summit Leaderboard",     Vector3.new(  31.554,   53.176, -1030.635)},
@@ -75,13 +64,21 @@ local points = {
   {"Mr Bus Summit",          Vector3.new( 638.770, 2203.497,  4207.933)},
 }
 
--- --- Baris kontrol (label kiri; dropdown + Go To kanan) ---
+-- ── Sapu sisa “Checkpoint” lama tapi JANGAN hapus label baru kita
+local function purgeOldCheckpointLabels(whitelist)
+  for _,d in ipairs(sec:GetDescendants()) do
+    if d:IsA("TextLabel") and d.Text == "Checkpoint" and d ~= whitelist then
+      d:Destroy()
+    end
+  end
+end
+
+-- ── Baris kontrol (label kiri; dropdown + Go To kanan)
 local row = Instance.new("Frame")
 row.Name = "AtinRow"
 row.BackgroundTransparency = 1
 row.Size = UDim2.new(1,0,0,40)
 row.Parent = sec
-
 local lay = Instance.new("UIListLayout", row)
 lay.FillDirection = Enum.FillDirection.Horizontal
 lay.Padding = UDim.new(0,8)
@@ -96,6 +93,10 @@ label.TextSize = 16
 label.TextColor3 = Theme.text
 label.Size = UDim2.new(0,120,1,0)
 label.Parent = row
+label:SetAttribute("DE_IsNewCheckpointLabel", true)
+
+-- sekarang sapu label lama (label baru kita di-whitelist)
+purgeOldCheckpointLabels(label)
 
 local right = Instance.new("Frame")
 right.BackgroundTransparency = 1
