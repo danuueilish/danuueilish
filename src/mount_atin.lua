@@ -1,28 +1,29 @@
 -- src/mount_atin.lua
--- Mount Atin • Checkpoint picker (label kiri; dropdown + Go To kanan)
-
-if _G.DE_ATIN_INIT then return end
-_G.DE_ATIN_INIT = true
+-- Mount Atin: layout rapi (tiap fitur 1 sub-section)
 
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
 
-local sec  = UI.MountSections["Mount Atin"] -- inner Frame section "Mount Atin"
-local root = UI.Window or sec                -- parent aman untuk panel dropdown
-
-local Theme = {
-  bg   = Color3.fromRGB(24,20,40),
-  card = Color3.fromRGB(44,36,72),
-  text = Color3.fromRGB(235,230,255),
-  text2= Color3.fromRGB(190,180,220),
-  accA = Color3.fromRGB(125,84,255),
-  accB = Color3.fromRGB(215,55,255)
+-- ambil warna dari UI kalau ada
+local Theme = UI.Theme or {
+  bg=Color3.fromRGB(24,20,40), card=Color3.fromRGB(44,36,72),
+  text=Color3.fromRGB(235,230,255), text2=Color3.fromRGB(190,180,220),
+  accA=Color3.fromRGB(125,84,255), accB=Color3.fromRGB(215,55,255)
 }
+
 local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p; return c end
 local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.55; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 
--- ── Data titik
-local points = {
+local mountRoot = UI.MountSections["Mount Atin"]                     -- section “Mount Atin” (inner frame)
+local Sec = UI.NewSection                                             -- helper buat bikin sub-section
+
+--------------------------------------------------------------------
+-- ============ Sub-section: CHECKPOINT =================-----------
+--------------------------------------------------------------------
+local secCP = Sec(mountRoot, "Checkpoint")  -- sub-section di dalam Atin
+
+-- data checkpoint (nama -> Vector3)
+local CP = {
   {"Basecamp",               Vector3.new(  16.501,   54.470, -1082.821)},
   {"Summit Leaderboard",     Vector3.new(  31.554,   53.176, -1030.635)},
   {"CP1",                    Vector3.new(   3.000,   11.911,  -408.000)},
@@ -64,181 +65,134 @@ local points = {
   {"Mr Bus Summit",          Vector3.new( 638.770, 2203.497,  4207.933)},
 }
 
--- ── Sapu sisa “Checkpoint” lama tapi JANGAN hapus label baru kita
-local function purgeOldCheckpointLabels(whitelist)
-  for _,d in ipairs(sec:GetDescendants()) do
-    if d:IsA("TextLabel") and d.Text == "Checkpoint" and d ~= whitelist then
-      d:Destroy()
-    end
-  end
-end
+-- baris horizontal: [label kiri] [dropdown] [Go To]
+local row = Instance.new("Frame"); row.BackgroundTransparency=1; row.Size=UDim2.new(1,0,0,36); row.Parent=secCP
+local hl  = Instance.new("UIListLayout", row)
+hl.FillDirection=Enum.FillDirection.Horizontal; hl.Padding=UDim.new(0,10); hl.VerticalAlignment=Enum.VerticalAlignment.Center
 
--- ── Baris kontrol (label kiri; dropdown + Go To kanan)
-local row = Instance.new("Frame")
-row.Name = "AtinRow"
-row.BackgroundTransparency = 1
-row.Size = UDim2.new(1,0,0,40)
-row.Parent = sec
-local lay = Instance.new("UIListLayout", row)
-lay.FillDirection = Enum.FillDirection.Horizontal
-lay.Padding = UDim.new(0,8)
-lay.VerticalAlignment = Enum.VerticalAlignment.Center
-lay.HorizontalAlignment = Enum.HorizontalAlignment.Left
+local lab = Instance.new("TextLabel")
+lab.BackgroundTransparency=1; lab.Text="Checkpoint"; lab.Font=Enum.Font.GothamBlack; lab.TextSize=16; lab.TextColor3=Theme.text
+lab.Size=UDim2.new(0,130,1,0); lab.Parent=row
 
-local label = Instance.new("TextLabel")
-label.BackgroundTransparency = 1
-label.Text = "Checkpoint"
-label.Font = Enum.Font.GothamBlack
-label.TextSize = 16
-label.TextColor3 = Theme.text
-label.Size = UDim2.new(0,120,1,0)
-label.Parent = row
-label:SetAttribute("DE_IsNewCheckpointLabel", true)
+local dd  = Instance.new("TextButton")
+dd.AutoButtonColor=false; dd.Text="Pilih checkpoint..."; dd.Font=Enum.Font.GothamSemibold; dd.TextSize=14; dd.TextColor3=Theme.text
+dd.BackgroundColor3=Color3.fromRGB(73,58,120); dd.Size=UDim2.new(1,-(130+130+20),1,0); dd.Parent=row
+corner(dd,8); stroke(dd,Theme.accA,1).Transparency=.45
 
--- sekarang sapu label lama (label baru kita di-whitelist)
-purgeOldCheckpointLabels(label)
+local go  = Instance.new("TextButton")
+go.AutoButtonColor=false; go.Text="Go To"; go.Font=Enum.Font.GothamSemibold; go.TextSize=14; go.TextColor3=Theme.text
+go.BackgroundColor3=Theme.accA; go.Size=UDim2.new(0,120,1,0); go.Parent=row
+corner(go,8); stroke(go,Theme.accB,1).Transparency=.35
 
-local right = Instance.new("Frame")
-right.BackgroundTransparency = 1
-right.Size = UDim2.new(1,-(120+8),1,0)
-right.Parent = row
-local rlay = Instance.new("UIListLayout", right)
-rlay.FillDirection = Enum.FillDirection.Horizontal
-rlay.Padding = UDim.new(0,8)
-rlay.HorizontalAlignment = Enum.HorizontalAlignment.Right
-rlay.VerticalAlignment = Enum.VerticalAlignment.Center
-
--- dropdown (di kiri dalam container kanan)
-local dd = Instance.new("TextButton")
-dd.AutoButtonColor = false
-dd.Text = "Pilih checkpoint..."
-dd.TextXAlignment = Enum.TextXAlignment.Left
-dd.Font = Enum.Font.GothamSemibold
-dd.TextSize = 14
-dd.TextColor3 = Theme.text
-dd.BackgroundColor3 = Theme.card
-dd.Size = UDim2.new(1,-(120+8),1,0)
-dd.Parent = right
-corner(dd,8); stroke(dd,Theme.accA,1).Transparency = .45
-
--- Go To (paling kanan)
-local btnGo = Instance.new("TextButton")
-btnGo.AutoButtonColor = false
-btnGo.Text = "Go To"
-btnGo.Font = Enum.Font.GothamSemibold
-btnGo.TextSize = 14
-btnGo.TextColor3 = Theme.text
-btnGo.BackgroundColor3 = Theme.accA
-btnGo.Size = UDim2.new(0,120,1,0)
-btnGo.Parent = right
-corner(btnGo,8); stroke(btnGo,Theme.accB,1).Transparency = .35
-
--- Panel dropdown: parent ke window agar tidak kepotong
+-- dropdown panel (muncul di bawah dd, tetap di dalam secCP agar tidak kepotong)
 local panel = Instance.new("Frame")
-panel.Name = "AtinDropdownPanel"
-panel.Visible = false
-panel.BackgroundColor3 = Theme.card
-panel.Size = UDim2.fromOffset(260,200)
-panel.Parent = root
-panel.ZIndex = 50
-corner(panel,8); stroke(panel,Theme.accB,1).Transparency = .35
-panel.ClipsDescendants = true
+panel.Visible=false; panel.BackgroundColor3=Theme.card; panel.Size=UDim2.new(0, dd.AbsoluteSize.X, 0, 200)
+panel.Parent = secCP; panel.ZIndex=5; corner(panel,8); stroke(panel,Theme.accB,1).Transparency=.35
 
 local function placePanel()
-  local ddPos, ddSize = dd.AbsolutePosition, dd.AbsoluteSize
-  local rootPos, rootSize = root.AbsolutePosition, root.AbsoluteSize
-  local x = ddPos.X - rootPos.X
-  local y = (ddPos.Y - rootPos.Y) + ddSize.Y + 6
-  local w = ddSize.X
-  panel.Size = UDim2.fromOffset(math.max(220, w), 200)
-  x = math.clamp(x, 8, rootSize.X - panel.AbsoluteSize.X - 8)
-  y = math.clamp(y, 8, rootSize.Y - panel.AbsoluteSize.Y - 8)
-  panel.Position = UDim2.fromOffset(x, y)
+  local a = dd.AbsolutePosition; local r = panel.Parent.AbsolutePosition
+  panel.Position = UDim2.fromOffset(a.X-r.X, (a.Y-r.Y)+dd.AbsoluteSize.Y+6)
+  panel.Size     = UDim2.fromOffset(dd.AbsoluteSize.X, 200)
 end
 
 local scroll = Instance.new("ScrollingFrame", panel)
-scroll.BackgroundTransparency = 1
-scroll.Size = UDim2.fromScale(1,1)
-scroll.ScrollBarThickness = 6
-scroll.CanvasSize = UDim2.new(0,0,0,0)
-scroll.ZIndex = 51
-local ll = Instance.new("UIListLayout", scroll)
-ll.Padding = UDim.new(0,6)
-ll:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-  scroll.CanvasSize = UDim2.new(0,0,0,ll.AbsoluteContentSize.Y+8)
-end)
+scroll.BackgroundTransparency=1; scroll.Size=UDim2.fromScale(1,1); scroll.ScrollBarThickness=6; scroll.CanvasSize=UDim2.new(0,0,0,0); scroll.ZIndex=6
+local l = Instance.new("UIListLayout", scroll); l.Padding=UDim.new(0,6)
+l:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize=UDim2.new(0,0,0,l.AbsoluteContentSize.Y+8) end)
 
-local selectedIndex
-for i,entry in ipairs(points) do
-  local b = Instance.new("TextButton")
-  b.AutoButtonColor = false
-  b.Text = entry[1]
-  b.Font = Enum.Font.Gotham
-  b.TextSize = 14
-  b.TextXAlignment = Enum.TextXAlignment.Left
-  b.TextColor3 = Theme.text
-  b.BackgroundColor3 = Color3.fromRGB(90,74,140)
-  b.Size = UDim2.new(1,-12,0,28)
-  b.Parent = scroll
-  corner(b,8); b.ZIndex = 52
-  b.MouseEnter:Connect(function() b.BackgroundColor3 = Color3.fromRGB(110,90,170) end)
-  b.MouseLeave:Connect(function() b.BackgroundColor3 = Color3.fromRGB(90,74,140) end)
-  b.MouseButton1Click:Connect(function()
-    selectedIndex = i
-    dd.Text = entry[1]
-    panel.Visible = false
-  end)
+local selectedIndex=nil
+for i,item in ipairs(CP) do
+  local b=Instance.new("TextButton"); b.AutoButtonColor=false; b.Text=item[1]; b.Font=Enum.Font.Gotham; b.TextSize=14; b.TextColor3=Theme.text
+  b.BackgroundColor3=Color3.fromRGB(90,74,140); b.Size=UDim2.new(1,-12,0,28); b.Parent=scroll; corner(b,8); b.ZIndex=7
+  b.MouseEnter:Connect(function() b.BackgroundColor3=Color3.fromRGB(110,90,170) end)
+  b.MouseLeave:Connect(function() b.BackgroundColor3=Color3.fromRGB(90,74,140) end)
+  b.MouseButton1Click:Connect(function() selectedIndex=i; dd.Text=item[1]; panel.Visible=false end)
 end
 
-dd.MouseButton1Click:Connect(function()
-  placePanel()
-  panel.Visible = not panel.Visible
-end)
-
--- tutup panel kalau klik di luar
+dd.MouseButton1Click:Connect(function() placePanel(); panel.Visible=not panel.Visible end)
 game:GetService("UserInputService").InputBegan:Connect(function(input,gp)
-  if gp or not panel.Visible then return end
-  if input.UserInputType == Enum.UserInputType.MouseButton1 then
-    local p = input.Position
-    local function inside(g)
-      return p.X>=g.AbsolutePosition.X and p.X<=g.AbsolutePosition.X+g.AbsoluteSize.X
-         and p.Y>=g.AbsolutePosition.Y and p.Y<=g.AbsolutePosition.Y+g.AbsoluteSize.Y
-    end
-    if not inside(dd) and not inside(panel) then panel.Visible = false end
-  end
+  if gp or not panel.Visible or input.UserInputType~=Enum.UserInputType.MouseButton1 then return end
+  local p=input.Position
+  local inDD = p.X>=dd.AbsolutePosition.X and p.X<=dd.AbsolutePosition.X+dd.AbsoluteSize.X and p.Y>=dd.AbsolutePosition.Y and p.Y<=dd.AbsolutePosition.Y+dd.AbsoluteSize.Y
+  local inPN = p.X>=panel.AbsolutePosition.X and p.X<=panel.AbsolutePosition.X+panel.AbsoluteSize.X and p.Y>=panel.AbsolutePosition.Y and p.Y<=panel.AbsolutePosition.Y+panel.AbsoluteSize.Y
+  if not inDD and not inPN then panel.Visible=false end
 end)
 
--- Teleport util
 local function HRP()
-  local plr = game:GetService("Players").LocalPlayer
-  local ch = plr.Character or plr.CharacterAdded:Wait()
+  local plr=game:GetService("Players").LocalPlayer
+  local ch=plr.Character or plr.CharacterAdded:Wait()
   return ch:FindFirstChild("HumanoidRootPart")
 end
-local function nudge(center)
-  local h = HRP(); if not h then return end
-  local dir = workspace.CurrentCamera and workspace.CurrentCamera.CFrame.LookVector or h.CFrame.LookVector
-  dir = Vector3.new(dir.X,0,dir.Z); if dir.Magnitude < .1 then dir = Vector3.new(1,0,0) end; dir = dir.Unit
+
+local function jumpDance(center)
+  local h=HRP(); if not h then return end
+  local dir=workspace.CurrentCamera and workspace.CurrentCamera.CFrame.LookVector or h.CFrame.LookVector
+  dir=Vector3.new(dir.X,0,dir.Z); if dir.Magnitude<.1 then dir=Vector3.new(1,0,0) end; dir=dir.Unit
   for _=1,2 do
-    h.CFrame = CFrame.new(center + dir*6); task.wait(0.08)
-    h.CFrame = CFrame.new(center - dir*6); task.wait(0.08)
+    h.CFrame=CFrame.new(center + dir*6); task.wait(0.08)
+    h.CFrame=CFrame.new(center - dir*6); task.wait(0.08)
   end
-  h.CFrame = CFrame.new(center)
+  h.CFrame=CFrame.new(center)
 end
 
-btnGo.MouseButton1Click:Connect(function()
-  if not selectedIndex then dd.Text = "Pilih checkpoint dulu…"; return end
-  local pos = points[selectedIndex][2]
-  local h = HRP()
-  if h then h.CFrame = CFrame.new(pos); nudge(pos) end
+go.MouseButton1Click:Connect(function()
+  if not selectedIndex then dd.Text="Pilih checkpoint dulu…"; return end
+  local pos=CP[selectedIndex][2]; local h=HRP(); if h then h.CFrame=CFrame.new(pos); jumpDance(pos) end
 end)
 
--- catatan
-local note = Instance.new("TextLabel")
-note.BackgroundTransparency = 1
-note.TextWrapped = true
-note.TextColor3 = Theme.text2
-note.Font = Enum.Font.Gotham
-note.TextSize = 13
-note.Text = "Pilih checkpoint di dropdown (kanan) lalu tekan 'Go To' untuk teleport."
-note.Size = UDim2.new(1,0,0,32)
-note.Parent = sec
+local hint=Instance.new("TextLabel"); hint.BackgroundTransparency=1; hint.TextWrapped=true
+hint.TextColor3=Theme.text2; hint.Font=Enum.Font.Gotham; hint.TextSize=13
+hint.Text="Pilih checkpoint di dropdown (kanan) lalu tekan 'Go To' untuk teleport."
+hint.Size=UDim2.new(1,0,0,32); hint.Parent=secCP
+
+--------------------------------------------------------------------
+-- ============ Sub-section: POSEIDON QUEST =================-------
+--------------------------------------------------------------------
+local secPQ = Sec(mountRoot, "Poseidon Quest")
+
+-- tombol baris vertikal biar rapi
+local function makeBtn(text, parent, color)
+  local b=Instance.new("TextButton"); b.AutoButtonColor=false; b.Text=text
+  b.Font=Enum.Font.GothamSemibold; b.TextSize=14; b.TextColor3=Theme.text
+  b.BackgroundColor3=color or Theme.accA; b.Size=UDim2.new(0,240,0,34); b.Parent=parent
+  corner(b,8); stroke(b,Theme.accB,1).Transparency=.35
+  return b
+end
+
+local btnKey  = makeBtn("Teleport ke Key",  secPQ)
+local btnGate = makeBtn("Buka Gate",       secPQ)
+local btnRun  = makeBtn("Auto Run (Key→Gate)", secPQ)
+
+local status  = Instance.new("TextLabel"); status.BackgroundTransparency=1; status.TextWrapped=true
+status.TextColor3=Theme.text2; status.Font=Enum.Font.Gotham; status.TextSize=13
+status.Size=UDim2.new(1,0,0,32); status.Parent=secPQ
+local function setStatus(t) status.Text="Status: "..t end
+
+-- KOORDINAT (ganti jika update map)
+local KEY_POS  = Vector3.new(-123.0,  10.0, 456.0)   -- TODO: isi titik kunci yang benar
+local GATE_POS = Vector3.new( 789.0,  20.0,-321.0)   -- TODO: isi titik gate yang benar
+
+local function tp(v3) local h=HRP(); if h then h.CFrame=CFrame.new(v3) end end
+
+btnKey.MouseButton1Click:Connect(function() tp(KEY_POS);  setStatus("Teleport ke lokasi key.") end)
+
+btnGate.MouseButton1Click:Connect(function()
+  tp(GATE_POS)
+  -- contoh logic dari dump: VaultKey.Touched -> PoseidonGate.Enabled true
+  local ok=false
+  local key = workspace:FindFirstChild("VaultKey", true)
+  local gate= workspace:FindFirstChild("PoseidonGate", true)
+  if key and key:IsA("BasePart") and gate and gate:IsA("BasePart") then
+    key.Parent.Transparency = 1
+    key.Enabled  = false
+    gate.Enabled = true
+    ok=true
+  end
+  setStatus(ok and "Gate dibuka." or "Gate: objek tidak ditemukan (cek nama/posisi).")
+end)
+
+btnRun.MouseButton1Click:Connect(function()
+  tp(KEY_POS); task.wait(0.5)
+  tp(GATE_POS); task.wait(0.2)
+  btnGate:Activate()
+end)
