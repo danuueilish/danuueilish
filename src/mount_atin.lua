@@ -1,14 +1,14 @@
 -- src/mount_atin.lua
--- Mount Atin : Checkpoint + Auto Summit + Poseidon Quest (rapi + aman) + Collapsible
+-- Mount Atin : Checkpoint + Auto Summit + Poseidon Quest (rapi + aman)
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
 
 local Players = game:GetService("Players")
 local UIS     = game:GetService("UserInputService")
-local LP      = Players.LocalPlayer
 local TP      = game:GetService("TeleportService")
-local GuiService = game:GetService("GuiService")
+local GuiSvc  = game:GetService("GuiService")
 local Http    = game:GetService("HttpService")
+local LP      = Players.LocalPlayer
 
 local Theme = {
   bg    = Color3.fromRGB(24,20,40),
@@ -87,67 +87,79 @@ local function posFrom(inst)
   return cf and cf.Position or nil
 end
 
--- small util (dance 3x keluar-masuk R=8)
-local function checkpointDance(center)
-  local hrp = (HRP())
-  if typeof(hrp)=="table" then hrp = hrp[1] end
-  if not hrp then return end
-  local cam = workspace.CurrentCamera
-  local dir = cam and cam.CFrame.LookVector or hrp.CFrame.LookVector
-  dir = Vector3.new(dir.X,0,dir.Z)
-  if dir.Magnitude < 0.1 then dir = Vector3.new(1,0,0) end
-  dir = dir.Unit
-  local R = 8
-  for _=1,3 do
-    hrp.CFrame = CFrame.new(center + dir*R); task.wait(0.12)
-    hrp.CFrame = CFrame.new(center - dir*R); task.wait(0.12)
-    hrp.CFrame = CFrame.new(center);         task.wait(0.12)
+----------------------------------------------------------------
+-- COLLAPSIBLE ROOT FOR "MOUNT ATIN"
+----------------------------------------------------------------
+local mountRoot = UI.MountSections["Mount Atin"]
+
+local COLLAPSED_H = 72 -- << tinggi kartu saat collapsed (sesuai mount lain)
+
+-- wrapper card (selalu ada)
+local wrap = Instance.new("Frame")
+wrap.BackgroundColor3 = Theme.card
+wrap.Size = UDim2.new(1,-16,0,COLLAPSED_H)
+wrap.Parent = mountRoot
+corner(wrap,12); stroke(wrap,Theme.accA,1).Transparency = .5
+
+-- header bar (klik untuk expand/collapse)
+local header = Instance.new("TextButton")
+header.AutoButtonColor=false
+header.BackgroundTransparency=1
+header.Text = "  ▶  Mount Atin"
+header.Font = Enum.Font.GothamBlack
+header.TextSize = 18
+header.TextColor3 = Theme.text
+header.TextXAlignment = Enum.TextXAlignment.Left
+header.Size = UDim2.new(1,-8,0,28)
+header.Position = UDim2.fromOffset(8,6)
+header.Parent = wrap
+
+-- container internal (di-hide saat collapsed)
+local innerHolder = Instance.new("Frame")
+innerHolder.BackgroundTransparency = 1
+innerHolder.Visible = false
+innerHolder.Size = UDim2.new(1,-16,0,0)
+innerHolder.Position = UDim2.fromOffset(8,36)
+innerHolder.Parent = wrap
+
+local innerList = Instance.new("UIListLayout", innerHolder)
+innerList.Padding = UDim.new(0,10)
+
+local function resizeWrap()
+  if innerHolder.Visible then
+    wrap.Size = UDim2.new(1,-16,0, math.max(COLLAPSED_H, 40 + innerList.AbsoluteContentSize.Y))
+    innerHolder.Size = UDim2.new(1,-16,0, innerList.AbsoluteContentSize.Y)
+  else
+    wrap.Size = UDim2.new(1,-16,0, COLLAPSED_H)
+    innerHolder.Size = UDim2.new(1,-16,0, 0)
   end
 end
+innerList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeWrap)
 
-----------------------------------------------------------------
--- COLLAPSIBLE WRAPPER UNTUK "Mount Atin"
-----------------------------------------------------------------
-local secRoot = UI.MountSections["Mount Atin"]        -- ini adalah inner dari section "Mount Atin" di ui_main
-local mountBox = secRoot.Parent                        -- kotak section yang punya title label
-
--- cari label head "Mount Atin"
-local headLabel
-for _,c in ipairs(mountBox:GetChildren()) do
-  if c:IsA("TextLabel") and (string.find((c.Text or ""):lower(), "mount atin", 1, true)) then
-    headLabel = c
-    break
-  end
+local expanded = false
+local function setExpanded(on)
+  expanded = on and true or false
+  innerHolder.Visible = expanded
+  header.Text = expanded and "  ▼  Mount Atin" or "  ▶  Mount Atin"
+  resizeWrap()
 end
 
--- overlay button untuk toggle
-local headerBtn = Instance.new("TextButton")
-headerBtn.BackgroundTransparency = 1
-headerBtn.AutoButtonColor = false
-headerBtn.Text = ""
-headerBtn.Size = headLabel and headLabel.Size or UDim2.new(1,-8,0,28)
-headerBtn.Position = headLabel and headLabel.Position or UDim2.fromOffset(8,6)
-headerBtn.ZIndex = (headLabel and (headLabel.ZIndex + 1)) or 2
-headerBtn.Parent = mountBox
+-- default collapsed di awal
+setExpanded(false)
 
--- default: collapse
-secRoot.Visible = false
-if headLabel then headLabel.Text = "  ▶ Mount Atin" end
-local opened = false
-headerBtn.MouseButton1Click:Connect(function()
-  opened = not opened
-  secRoot.Visible = opened
-  if headLabel then headLabel.Text = opened and "  ▼ Mount Atin" or "  ▶ Mount Atin" end
+-- toggle on click
+header.MouseButton1Click:Connect(function()
+  setExpanded(not expanded)
 end)
 
 ----------------------------------------------------------------
--- FACTORY SUB-SECTION (ke dalam secRoot)
+-- SUBSECTION FACTORY (dalam innerHolder)
 ----------------------------------------------------------------
 local function newSub(titleText)
   local box = Instance.new("Frame")
   box.BackgroundColor3 = Theme.card
-  box.Size = UDim2.new(1,-16,0,60)
-  box.Parent = secRoot
+  box.Size = UDim2.new(1,0,0,60)
+  box.Parent = innerHolder
   corner(box,10); stroke(box,Theme.accA,1).Transparency=.5
 
   local title = Instance.new("TextLabel")
@@ -171,8 +183,9 @@ local function newSub(titleText)
   lay.Padding = UDim.new(0,8)
 
   local function resize()
-    box.Size = UDim2.new(1,-16,0, math.max(60, 40 + lay.AbsoluteContentSize.Y))
+    box.Size = UDim2.new(1,0,0, math.max(60, 40 + lay.AbsoluteContentSize.Y))
     inner.Size = UDim2.new(1,-16,0, lay.AbsoluteContentSize.Y)
+    resizeWrap()
   end
   lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resize)
   task.defer(resize)
@@ -181,11 +194,11 @@ local function newSub(titleText)
 end
 
 ----------------------------------------------------------------
--- SUB: CHECKPOINT (dropdown kanan + Go To)
+-- SUB: CHECKPOINT
 ----------------------------------------------------------------
 local cpInner = newSub("Checkpoint")
 
--- Row: [dropdown + GoTo] (label "Checkpoint" ditiadakan)
+-- Row: [Dropdown] [Go To]
 local row = Instance.new("Frame"); row.BackgroundTransparency=1; row.Size=UDim2.new(1,0,0,36); row.Parent=cpInner
 local h = Instance.new("UIListLayout", row)
 h.FillDirection=Enum.FillDirection.Horizontal; h.Padding=UDim.new(0,8); h.VerticalAlignment=Enum.VerticalAlignment.Center
@@ -199,16 +212,16 @@ hr.VerticalAlignment = Enum.VerticalAlignment.Center
 
 -- Dropdown button
 local dd = Instance.new("TextButton")
-dd.AutoButtonColor=false; dd.Text="Pilih checkpoint..."
+dd.AutoButtonColor=false; dd.Text="Basecamp"
 dd.Font=Enum.Font.GothamSemibold; dd.TextSize=14; dd.TextColor3=Theme.text
 dd.TextWrapped=false; dd.TextTruncate=Enum.TextTruncate.AtEnd
-dd.BackgroundColor3=Theme.card; dd.Size=UDim2.new(0,260,1,0); dd.Parent=right
+dd.BackgroundColor3=Theme.card; dd.Size=UDim2.new(1,-(120+8),1,0); dd.Parent=right
 corner(dd,8); stroke(dd,Theme.accA,1).Transparency=.45
 
--- Panel list (ditaruh di root section agar tidak kepotong)
+-- Panel list (ditaruh di wrap agar ga kepotong)
 local panel = Instance.new("Frame")
 panel.Visible=false; panel.BackgroundColor3=Theme.card
-panel.Size=UDim2.new(0,260,0,184); panel.Parent=secRoot
+panel.Size=UDim2.new(0,260,0,184); panel.Parent=wrap
 panel.ClipsDescendants=true; panel.ZIndex=5
 corner(panel,8); stroke(panel,Theme.accB,1).Transparency=.35
 
@@ -221,10 +234,9 @@ l:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
   listScroll.CanvasSize=UDim2.new(0,0,0,l.AbsoluteContentSize.Y+8)
 end)
 
--- Posisi dropdown list DI-CLAMP supaya tidak keluar kotak section
 local function placePanel()
-  local rootAbs = secRoot.AbsolutePosition
-  local rootSize = secRoot.AbsoluteSize
+  local rootAbs = wrap.AbsolutePosition
+  local rootSize = wrap.AbsoluteSize
   local abs = dd.AbsolutePosition
   local ddSize = dd.AbsoluteSize
   local margin = 8
@@ -313,149 +325,151 @@ go.BackgroundColor3=Theme.accA; go.Size=UDim2.new(0,120,1,0); go.Parent=right
 corner(go,8); stroke(go,Theme.accB,1).Transparency=.3
 go.MouseButton1Click:Connect(function()
   if not selectedIndex then dd.Text="Pilih checkpoint dulu…"; return end
-  local pos = checkpoints[selectedIndex][2]
-  safeTP(pos); checkpointDance(pos)
+  safeTP(checkpoints[selectedIndex][2])
 end)
 
 -- Catatan
 do
   local note = Instance.new("TextLabel")
   note.BackgroundTransparency=1; note.TextWrapped=true; note.TextColor3=Theme.text2; note.Font=Enum.Font.Gotham; note.TextSize=13
-  note.Text="Pilih checkpoint di dropdown lalu tekan 'Go To'."
+  note.Text="Pilih checkpoint di dropdown (kanan) lalu tekan 'Go To' untuk teleport."
   note.Size=UDim2.new(1,0,0,30); note.Parent=cpInner
 end
 
 ----------------------------------------------------------------
--- SUB: AUTO SUMMIT (di tengah)
+-- SUB: AUTO SUMMIT
 ----------------------------------------------------------------
 local asInner = newSub("Auto Summit")
 
--- persist
-local FILE = "danuu_mount_atin_autosummit.json"
-local fileOK = (writefile and readfile and isfile) and true or false
-local state = { loop_on=false, loop_delay=3, rj_on=false, rj_delay=5 }
-
-local function saveState()
-  if not fileOK then return end
-  pcall(function() writefile(FILE, Http:JSONEncode(state)) end)
-end
-local function loadState()
-  if not (fileOK and isfile(FILE)) then return end
-  local ok, data = pcall(function() return Http:JSONDecode(readfile(FILE)) end)
-  if ok and type(data)=="table" then
-    state.loop_on = data.loop_on == true
-    state.loop_delay = tonumber(data.loop_delay) or 3
-    state.rj_on = data.rj_on == true
-    state.rj_delay = tonumber(data.rj_delay) or 5
-  end
-end
-loadState()
-
--- usage
 do
-  local how = Instance.new("TextLabel")
-  how.BackgroundTransparency=1; how.TextWrapped=true; how.TextColor3=Theme.text2; how.Font=Enum.Font.Gotham; how.TextSize=13
-  how.Text = "Cara Pakai:\n1) Pastikan script auto jalan.\n2) Isi delay Auto Loop (default 3s). Disarankan ≥ 3s.\n3) Isi delay Auto Rejoin (default 5s), biasanya > delay loop.\n4) Nyalakan toggle sesuai kebutuhan."
-  how.Size = UDim2.new(1,0,0,64)
-  how.Parent = asInner
+  local help = Instance.new("TextLabel")
+  help.BackgroundTransparency=1; help.TextWrapped=true; help.TextColor3=Theme.text2
+  help.Font=Enum.Font.Gotham; help.TextSize=13
+  help.Text = "Cara Pakai:\n1) Pastikan auto-execute aktif.\n2) Atur delay Auto Loop (default 3s).\n3) Atur Auto Rejoin (default 5s) — sebaiknya > delay loop.\n4) Toggle yang kamu perlukan."
+  help.Size = UDim2.new(1,0,0,58)
+  help.Parent = asInner
 end
 
--- row1: [box delay loop] [toggle]
-local rowL = Instance.new("Frame"); rowL.BackgroundTransparency=1; rowL.Size=UDim2.new(1,0,0,34); rowL.Parent=asInner
-local layL = Instance.new("UIListLayout", rowL); layL.FillDirection=Enum.FillDirection.Horizontal; layL.Padding=UDim.new(0,8)
+-- Row Loop
+local loopRow = Instance.new("Frame"); loopRow.BackgroundTransparency=1; loopRow.Size=UDim2.new(1,0,0,36); loopRow.Parent=asInner
+local lhl = Instance.new("UIListLayout", loopRow)
+lhl.FillDirection=Enum.FillDirection.Horizontal; lhl.Padding=UDim.new(0,8); lhl.VerticalAlignment=Enum.VerticalAlignment.Center
 
 local loopBox = Instance.new("TextBox")
-loopBox.Size=UDim2.new(0.6, -4, 1, 0); loopBox.BackgroundColor3=Theme.card; loopBox.ClearTextOnFocus=false
-loopBox.PlaceholderText="Delay Auto Loop (detik) • default 3"; loopBox.PlaceholderColor3=Theme.text2
-loopBox.Text = tostring(state.loop_delay); loopBox.TextColor3=Theme.text; loopBox.Font=Enum.Font.Gotham; loopBox.TextSize=14; loopBox.TextTruncate=Enum.TextTruncate.AtEnd
-corner(loopBox,8); stroke(loopBox,Theme.accA,1).Transparency=.5; loopBox.Parent=rowL
+loopBox.BackgroundColor3=Theme.card; loopBox.TextColor3=Theme.text
+loopBox.PlaceholderText="Delay Loop (s) default 3"; loopBox.PlaceholderColor3=Theme.text2
+loopBox.ClearTextOnFocus=false; loopBox.Font=Enum.Font.Gotham; loopBox.TextSize=14; loopBox.Text=""
+loopBox.Size=UDim2.new(1,-(120+8),1,0); loopBox.Parent=loopRow
+corner(loopBox,8); stroke(loopBox,Theme.accA,1).Transparency=.5
 
-local loopBtn = Instance.new("TextButton")
-loopBtn.Size=UDim2.new(0.4, -4, 1, 0); loopBtn.BackgroundColor3=Theme.accA; loopBtn.AutoButtonColor=false
-loopBtn.TextColor3=Theme.text; loopBtn.Font=Enum.Font.GothamSemibold; loopBtn.TextSize=14
-corner(loopBtn,8); stroke(loopBtn,Theme.accB,1).Transparency=.35; loopBtn.Parent=rowL
+local loopToggle = Instance.new("TextButton")
+loopToggle.AutoButtonColor=false; loopToggle.Text="Auto Loop: OFF"
+loopToggle.Font=Enum.Font.GothamSemibold; loopToggle.TextSize=14; loopToggle.TextColor3=Theme.text
+loopToggle.BackgroundColor3=Theme.accA; loopToggle.Size=UDim2.new(0,120,1,0); loopToggle.Parent=loopRow
+corner(loopToggle,8); stroke(loopToggle,Theme.accB,1).Transparency=.3
 
-local function refreshLoopBtn() loopBtn.Text = "Auto Loop: "..(state.loop_on and "ON" or "OFF") end
-refreshLoopBtn()
-
-loopBox.FocusLost:Connect(function()
-  local v = tonumber(loopBox.Text) or 3
-  v = math.max(1, math.floor(v+0.5))
-  state.loop_delay = v; loopBox.Text = tostring(v); saveState()
-end)
-loopBtn.MouseButton1Click:Connect(function()
-  state.loop_on = not state.loop_on; refreshLoopBtn(); saveState()
-end)
-
--- row2: [box delay rejoin] [toggle]
-local rowR = Instance.new("Frame"); rowR.BackgroundTransparency=1; rowR.Size=UDim2.new(1,0,0,34); rowR.Parent=asInner
-local layR = Instance.new("UIListLayout", rowR); layR.FillDirection=Enum.FillDirection.Horizontal; layR.Padding=UDim.new(0,8)
+-- Row Rejoin
+local rjRow = Instance.new("Frame"); rjRow.BackgroundTransparency=1; rjRow.Size=UDim2.new(1,0,0,36); rjRow.Parent=asInner
+local rhl = Instance.new("UIListLayout", rjRow)
+rhl.FillDirection=Enum.FillDirection.Horizontal; rhl.Padding=UDim.new(0,8); rhl.VerticalAlignment=Enum.VerticalAlignment.Center
 
 local rjBox = Instance.new("TextBox")
-rjBox.Size=UDim2.new(0.6, -4, 1, 0); rjBox.BackgroundColor3=Theme.card; rjBox.ClearTextOnFocus=false
-rjBox.PlaceholderText="Delay Auto Rejoin (detik) • default 5"; rjBox.PlaceholderColor3=Theme.text2
-rjBox.Text = tostring(state.rj_delay); rjBox.TextColor3=Theme.text; rjBox.Font=Enum.Font.Gotham; rjBox.TextSize=14; rjBox.TextTruncate=Enum.TextTruncate.AtEnd
-corner(rjBox,8); stroke(rjBox,Theme.accA,1).Transparency=.5; rjBox.Parent=rowR
+rjBox.BackgroundColor3=Theme.card; rjBox.TextColor3=Theme.text
+rjBox.PlaceholderText="Delay Auto Rejoin (s) default 5"; rjBox.PlaceholderColor3=Theme.text2
+rjBox.ClearTextOnFocus=false; rjBox.Font=Enum.Font.Gotham; rjBox.TextSize=14; rjBox.Text=""
+rjBox.Size=UDim2.new(1,-(120+8),1,0); rjBox.Parent=rjRow
+corner(rjBox,8); stroke(rjBox,Theme.accA,1).Transparency=.5
 
-local rjBtn = Instance.new("TextButton")
-rjBtn.Size=UDim2.new(0.4, -4, 1, 0); rjBtn.BackgroundColor3=Theme.accA; rjBtn.AutoButtonColor=false
-rjBtn.TextColor3=Theme.text; rjBtn.Font=Enum.Font.GothamSemibold; rjBtn.TextSize=14
-corner(rjBtn,8); stroke(rjBtn,Theme.accB,1).Transparency=.35; rjBtn.Parent=rowR
+local rjToggle = Instance.new("TextButton")
+rjToggle.AutoButtonColor=false; rjToggle.Text="Auto Rejoin: OFF"
+rjToggle.Font=Enum.Font.GothamSemibold; rjToggle.TextSize=14; rjToggle.TextColor3=Theme.text
+rjToggle.BackgroundColor3=Theme.accA; rjToggle.Size=UDim2.new(0,120,1,0); rjToggle.Parent=rjRow
+corner(rjToggle,8); stroke(rjToggle,Theme.accB,1).Transparency=.3
 
-local function refreshRJBtn() rjBtn.Text = "Auto Rejoin: "..(state.rj_on and "ON" or "OFF") end
-refreshRJBtn()
+-- persist (per place)
+local fileOK = (writefile and readfile and isfile) and true or false
+local STATE_FILE = ("danuu_auto_summit_%s.json"):format(tostring(game.PlaceId))
+local function saveState(data) if not fileOK then return end; pcall(function() writefile(STATE_FILE, Http:JSONEncode(data)) end) end
+local function loadState()
+  if not fileOK or not isfile(STATE_FILE) then return {} end
+  local ok, data = pcall(function() return Http:JSONDecode(readfile(STATE_FILE)) end)
+  return ok and data or {}
+end
 
-rjBox.FocusLost:Connect(function()
-  local v = tonumber(rjBox.Text) or 5
-  v = math.max(1, math.floor(v+0.5))
-  state.rj_delay = v; rjBox.Text = tostring(v); saveState()
-end)
-rjBtn.MouseButton1Click:Connect(function()
-  state.rj_on = not state.rj_on; refreshRJBtn(); saveState()
-end)
+local state = loadState()
+local summitPos = Vector3.new(781.809, 2162.143, 3920.971)
+local autoLoop = state.autoLoop or false
+local autoRJ   = state.autoRJ   or false
+local loopDelay = tonumber(state.loopDelay) or 3
+local rjDelay   = tonumber(state.rjDelay)   or 5
+loopBox.Text = tostring(loopDelay)
+rjBox.Text   = tostring(rjDelay)
+local function refreshToggles()
+  loopToggle.Text = "Auto Loop: "..(autoLoop and "ON" or "OFF")
+  rjToggle.Text   = "Auto Rejoin: "..(autoRJ and "ON" or "OFF")
+end
+refreshToggles()
 
--- worker: Auto Loop (teleport ke Summit + dance)
-local SUMMIT_POS = Vector3.new(781.809, 2162.143, 3920.971)
-task.spawn(function()
-  while wait(0.1) do
-    if state.loop_on then
-      local d = tonumber(loopBox.Text) or state.loop_delay or 3
-      d = math.max(1, math.floor(d+0.5))
-      safeTP(SUMMIT_POS)
-      checkpointDance(SUMMIT_POS)
-      local t0 = tick()
-      while tick()-t0 < d and state.loop_on do task.wait(0.05) end
-    end
-  end
-end)
-
--- worker: Auto Rejoin (timer + on error)
-local PlaceId, JobId = game.PlaceId, game.JobId
-local function doRJ()
-  if #Players:GetPlayers() <= 1 then
-    LP:Kick("\nRejoining...")
-    task.wait()
-    TP:Teleport(PlaceId, LP)
-  else
-    TP:TeleportToPlaceInstance(PlaceId, JobId, LP)
+local function checkpointDance(center)
+  local hrp = HRP(); if not hrp then return end
+  local cam = workspace.CurrentCamera
+  local dir = (cam and cam.CFrame.LookVector or hrp.CFrame.LookVector)
+  dir = Vector3.new(dir.X,0,dir.Z); if dir.Magnitude<0.1 then dir = Vector3.new(1,0,0) end
+  dir = dir.Unit
+  local R = 8
+  for _=1,3 do
+    hrp.CFrame = CFrame.new(center) + dir*R; task.wait(0.12)
+    hrp.CFrame = CFrame.new(center) - dir*R; task.wait(0.12)
+    hrp.CFrame = CFrame.new(center);         task.wait(0.12)
   end
 end
 
-GuiService.ErrorMessageChanged:Connect(function(msg)
-  if state.rj_on and (msg and #msg>0) then doRJ() end
+loopToggle.MouseButton1Click:Connect(function()
+  autoLoop = not autoLoop
+  loopDelay = tonumber(loopBox.Text) or 3
+  refreshToggles()
+  saveState({autoLoop=autoLoop, autoRJ=autoRJ, loopDelay=loopDelay, rjDelay=rjDelay})
 end)
 
+rjToggle.MouseButton1Click:Connect(function()
+  autoRJ = not autoRJ
+  rjDelay = tonumber(rjBox.Text) or 5
+  refreshToggles()
+  saveState({autoLoop=autoLoop, autoRJ=autoRJ, loopDelay=loopDelay, rjDelay=rjDelay})
+end)
+
+-- auto rejoin listener (aktif only when toggle ON)
+GuiSvc.ErrorMessageChanged:Connect(function()
+  if autoRJ then
+    task.delay(rjDelay, function()
+      if #Players:GetPlayers() <= 1 then
+        LP:Kick("\nRejoining...")
+        task.wait()
+        TP:Teleport(game.PlaceId, LP)
+      else
+        TP:TeleportToPlaceInstance(game.PlaceId, game.JobId, LP)
+      end
+    end)
+  end
+end)
+
+-- main loop (teleport ke summit + goyang 3x)
 task.spawn(function()
-  while wait(0.1) do
-    if state.rj_on then
-      local d = tonumber(rjBox.Text) or state.rj_delay or 5
-      d = math.max(1, math.floor(d+0.5))
-      local t0 = tick()
-      while tick()-t0 < d and state.rj_on do task.wait(0.05) end
-      if state.rj_on then doRJ() end
+  while task.wait(0.05) do
+    if autoLoop then
+      loopDelay = tonumber(loopBox.Text) or 3
+      safeTP(summitPos)
+      checkpointDance(summitPos)
+      local t0=tick()
+      while tick()-t0 < loopDelay do
+        if not autoLoop then break end
+        task.wait(0.05)
+      end
     end
   end
 end)
+
+end -- auto summit scope
 
 ----------------------------------------------------------------
 -- SUB: POSEIDON QUEST (dropdown manual + Auto)
@@ -474,9 +488,8 @@ pl.FillDirection=Enum.FillDirection.Horizontal; pl.Padding=UDim.new(0,8); pl.Ver
 
 local pRight = Instance.new("Frame")
 pRight.BackgroundTransparency=1
-pRight.Size = UDim2.new(1, -(120+8), 1, 0) -- sisakan ruang untuk tombol
+pRight.Size = UDim2.new(1, -(120+8), 1, 0)
 pRight.Parent = prow
-
 local pLay   = Instance.new("UIListLayout", pRight)
 pLay.FillDirection=Enum.FillDirection.Horizontal; pLay.Padding=UDim.new(0,8)
 pLay.HorizontalAlignment = Enum.HorizontalAlignment.Left
@@ -495,10 +508,10 @@ pGo.Font=Enum.Font.GothamSemibold; pGo.TextSize=14; pGo.TextColor3=Theme.text
 pGo.BackgroundColor3=Theme.accA; pGo.Size=UDim2.new(0,120,1,0); pGo.Parent=prow
 corner(pGo,8); stroke(pGo,Theme.accB,1).Transparency=.3
 
--- Panel list manual (clamped, parent di secRoot agar tidak kepotong)
+-- Panel list manual
 local pPanel = Instance.new("Frame")
 pPanel.Visible=false; pPanel.BackgroundColor3=Theme.card
-pPanel.Size=UDim2.new(0,260,0,184); pPanel.Parent=secRoot
+pPanel.Size=UDim2.new(0,260,0,184); pPanel.Parent=wrap
 pPanel.ClipsDescendants=true; pPanel.ZIndex=5
 corner(pPanel,8); stroke(pPanel,Theme.accB,1).Transparency=.35
 
@@ -512,8 +525,8 @@ pUIL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 local function placePPanel()
-  local rootAbs = secRoot.AbsolutePosition
-  local rootSize = secRoot.AbsoluteSize
+  local rootAbs = wrap.AbsolutePosition
+  local rootSize = wrap.AbsoluteSize
   local abs = pdd.AbsolutePosition
   local ddSize = pdd.AbsoluteSize
   local margin, width = 8, 260
@@ -566,7 +579,7 @@ pGo.MouseButton1Click:Connect(function()
   safeTP(pos)
 end)
 
--- Tombol Auto Quest (tetap)
+-- Tombol Auto Quest Poseidon
 local function mkBtn(txt, cb)
   local b=Instance.new("TextButton")
   b.AutoButtonColor=false; b.Text=txt; b.Font=Enum.Font.GothamSemibold; b.TextSize=14; b.TextColor3=Theme.text
