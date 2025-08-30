@@ -18,7 +18,7 @@ local Theme = {
 local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p; return c end
 local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.55; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 
--- === data
+-- data titik
 local points = {
   {"Basecamp",               Vector3.new(  16.501,   54.470, -1082.821)},
   {"Summit Leaderboard",     Vector3.new(  31.554,   53.176, -1030.635)},
@@ -61,18 +61,18 @@ local points = {
   {"Mr Bus Summit",          Vector3.new( 638.770, 2203.497,  4207.933)},
 }
 
--- === baris kontrol
+-- ===== baris kontrol
 local row = Instance.new("Frame")
 row.BackgroundTransparency = 1
 row.Size = UDim2.new(1,0,0,40)
 row.Parent = sec
 row.ClipsDescendants = false
 
-local h = Instance.new("UIListLayout", row)
-h.FillDirection = Enum.FillDirection.Horizontal
-h.Padding = UDim.new(0,8)
-h.VerticalAlignment = Enum.VerticalAlignment.Center
-h.HorizontalAlignment = Enum.HorizontalAlignment.Left
+local lay = Instance.new("UIListLayout", row)
+lay.FillDirection = Enum.FillDirection.Horizontal
+lay.Padding = UDim.new(0,8)
+lay.VerticalAlignment = Enum.VerticalAlignment.Center
+lay.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
 -- label kiri
 local label = Instance.new("TextLabel")
@@ -84,19 +84,32 @@ label.TextColor3 = Theme.text
 label.Size = UDim2.new(0,120,1,0)
 label.Parent = row
 
--- container kanan (isi sisa ruang)
+-- container kanan
 local right = Instance.new("Frame")
 right.BackgroundTransparency = 1
 right.Size = UDim2.new(1,-(120+8),1,0)
 right.Parent = row
 
-local rightLay = Instance.new("UIListLayout", right)
-rightLay.FillDirection = Enum.FillDirection.Horizontal
-rightLay.Padding = UDim.new(0,8)
-rightLay.HorizontalAlignment = Enum.HorizontalAlignment.Right
-rightLay.VerticalAlignment = Enum.VerticalAlignment.Center
+local rlay = Instance.new("UIListLayout", right)
+rlay.FillDirection = Enum.FillDirection.Horizontal
+rlay.Padding = UDim.new(0,8)
+rlay.HorizontalAlignment = Enum.HorizontalAlignment.Right
+rlay.VerticalAlignment = Enum.VerticalAlignment.Center
 
--- tombol Go To (fixed 120)
+-- DROPDOWN (dibuat duluan biar posisinya di kiri)
+local dd = Instance.new("TextButton")
+dd.AutoButtonColor = false
+dd.Text = "Pilih checkpoint..."
+dd.TextXAlignment = Enum.TextXAlignment.Left
+dd.Font = Enum.Font.GothamSemibold
+dd.TextSize = 14
+dd.TextColor3 = Theme.text
+dd.BackgroundColor3 = Theme.card
+dd.Size = UDim2.new(1,-(120+8),1,0) -- sisa ruang selain tombol
+dd.Parent = right
+corner(dd,8); stroke(dd,Theme.accA,1).Transparency = .45
+
+-- TOMBOL GO TO (menempel di kanan)
 local btnGo = Instance.new("TextButton")
 btnGo.AutoButtonColor = false
 btnGo.Text = "Go To"
@@ -106,29 +119,16 @@ btnGo.TextColor3 = Theme.text
 btnGo.BackgroundColor3 = Theme.accA
 btnGo.Size = UDim2.new(0,120,1,0)
 btnGo.Parent = right
-corner(btnGo,8); stroke(btnGo,Theme.accB,1).Transparency=.35
+corner(btnGo,8); stroke(btnGo,Theme.accB,1).Transparency = .35
 
--- dropdown (isi sisa ruang di kiri tombol)
-local dd = Instance.new("TextButton")
-dd.AutoButtonColor = false
-dd.Text = "Pilih checkpoint..."
-dd.Font = Enum.Font.GothamSemibold
-dd.TextXAlignment = Enum.TextXAlignment.Left
-dd.TextSize = 14
-dd.TextColor3 = Theme.text
-dd.BackgroundColor3 = Theme.card -- (balik ke gaya sebelumnya)
-dd.Size = UDim2.new(1,-(120+8),1,0)
-dd.Parent = right
-corner(dd,8); stroke(dd,Theme.accA,1).Transparency=.45
-
--- panel list (parent = window supaya tak kepotong)
+-- panel dropdown (parent = window agar tak kepotong)
 local panel = Instance.new("Frame")
 panel.Visible = false
 panel.BackgroundColor3 = Theme.card
-panel.Size = UDim2.fromOffset(260, 200)
+panel.Size = UDim2.fromOffset(260,200)
 panel.Parent = root
 panel.ZIndex = 50
-corner(panel,8); stroke(panel,Theme.accB,1).Transparency=.35
+corner(panel,8); stroke(panel,Theme.accB,1).Transparency = .35
 panel.ClipsDescendants = true
 
 local function placePanel()
@@ -138,7 +138,6 @@ local function placePanel()
   local y = (ddPos.Y - rootPos.Y) + ddSize.Y + 6
   local w = ddSize.X
   panel.Size = UDim2.fromOffset(math.max(220, w), 200)
-  -- clamp agar tetap di dalam window
   x = math.clamp(x, 8, rootSize.X - panel.AbsoluteSize.X - 8)
   y = math.clamp(y, 8, rootSize.Y - panel.AbsoluteSize.Y - 8)
   panel.Position = UDim2.fromOffset(x, y)
@@ -150,11 +149,10 @@ scroll.Size = UDim2.fromScale(1,1)
 scroll.ScrollBarThickness = 6
 scroll.CanvasSize = UDim2.new(0,0,0,0)
 scroll.ZIndex = 51
-
-local l = Instance.new("UIListLayout", scroll)
-l.Padding = UDim.new(0,6)
-l:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-  scroll.CanvasSize = UDim2.new(0,0,0,l.AbsoluteContentSize.Y+8)
+local ll = Instance.new("UIListLayout", scroll)
+ll.Padding = UDim.new(0,6)
+ll:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+  scroll.CanvasSize = UDim2.new(0,0,0,ll.AbsoluteContentSize.Y+8)
 end)
 
 local selectedIndex
@@ -184,17 +182,17 @@ dd.MouseButton1Click:Connect(function()
   panel.Visible = not panel.Visible
 end)
 
--- tutup panel saat klik di luar
+-- tutup panel bila klik di luar
 game:GetService("UserInputService").InputBegan:Connect(function(input,gp)
   if gp or not panel.Visible then return end
   if input.UserInputType == Enum.UserInputType.MouseButton1 then
     local p = input.Position
     local function inside(g) return p.X>=g.AbsolutePosition.X and p.X<=g.AbsolutePosition.X+g.AbsoluteSize.X and p.Y>=g.AbsolutePosition.Y and p.Y<=g.AbsolutePosition.Y+g.AbsoluteSize.Y end
-    if not inside(dd) and not inside(panel) then panel.Visible=false end
+    if not inside(dd) and not inside(panel) then panel.Visible = false end
   end
 end)
 
--- teleport helpers
+-- teleport
 local function HRP()
   local plr = game:GetService("Players").LocalPlayer
   local ch = plr.Character or plr.CharacterAdded:Wait()
@@ -218,7 +216,7 @@ btnGo.MouseButton1Click:Connect(function()
   if h then h.CFrame = CFrame.new(pos); nudge(pos) end
 end)
 
--- note
+-- keterangan
 local note = Instance.new("TextLabel")
 note.BackgroundTransparency = 1
 note.TextWrapped = true
