@@ -1,18 +1,18 @@
 -- src/home.lua
--- Home card (KTP) untuk tab "Menu" tanpa mengubah ui_main.lua
+-- "Home" card (ID-style) with avatar + info + marquee for long text
 
-local Players  = game:GetService("Players")
-local MPS      = game:GetService("MarketplaceService")
-local Http     = game:GetService("HttpService")
-
-local LP = Players.LocalPlayer
-
--- Tunggu API dari ui_main.lua
 local UI = _G.danuu_hub_ui
 if not UI or not UI.Tabs or not UI.Tabs.Menu then return end
 
--- Theme fallback (pakai dari ui_main kalau ada)
-local Theme = (_G.danuu_theme) or {
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local TweenService = game:GetService("TweenService")
+
+local LP = Players.LocalPlayer
+
+-- ==== tiny UI helpers (match hub style)
+local Theme = {
   bg    = Color3.fromRGB(24,20,40),
   card  = Color3.fromRGB(44,36,72),
   text  = Color3.fromRGB(235,230,255),
@@ -24,110 +24,194 @@ local Theme = (_G.danuu_theme) or {
 local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 10); c.Parent=p; return c end
 local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.6; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 
--- ==== Rename tombol "Menu" -> "Home" (tanpa akses internal) ====
-do
-  local root = UI.Window
-  if root then
-    for _,d in ipairs(root:GetDescendants()) do
-      if d:IsA("TextButton") and d.Text == "Menu" then
-        d.Text = "Home"
-        break
-      end
-    end
-  end
-end
-
--- ==== Helper data ====
-local function fetchMapName()
-  local name = "Unknown"
-  pcall(function() name = (MPS:GetProductInfo(game.PlaceId) or {}).Name or name end)
-  return name
-end
-
-local function fetchAvatarUrl()
-  local url
-  pcall(function()
-    url = (Players:GetUserThumbnailAsync(LP.UserId, Enum.ThumbnailType.AvatarBust, Enum.ThumbnailSize.Size180x180))
-  end)
-  return url or ""
-end
-
-local function fetchBio()
-  -- Coba API Roblox (butuh HttpService diizinkan)
-  local bio
-  pcall(function()
-    local raw = game:HttpGet(("https://users.roblox.com/v1/users/%d"):format(LP.UserId))
-    local data = Http:JSONDecode(raw)
-    if data and typeof(data)=="table" and data.description and #data.description>0 then
-      bio = data.description
-    end
-  end)
-  return bio or "—"
-end
-
--- ==== Buat Section "Home" di Tab Menu ====
+-- ==== section container inside existing Menu/Home tab
 local inner = UI.NewSection(UI.Tabs.Menu, "Home")
 
--- ==== Kartu KTP ====
+-- ==== Card (avatar left, info right)
 local card = Instance.new("Frame")
-card.BackgroundColor3 = Theme.card
-card.Size = UDim2.new(1, -16, 0, 160)
+card.BackgroundColor3 = Theme.bg
+card.Size = UDim2.new(1, 0, 0, 200)
 card.Parent = inner
-corner(card,10); stroke(card,Theme.accA,1).Transparency=.55
+corner(card, 10); stroke(card, Theme.accA, 1).Transparency = .5
 
--- Avatar (3x3)
+local pad = Instance.new("UIPadding", card)
+pad.PaddingLeft = UDim.new(0, 10)
+pad.PaddingRight = UDim.new(0, 10)
+pad.PaddingTop = UDim.new(0, 10)
+pad.PaddingBottom = UDim.new(0, 10)
+
+-- layout
+local row = Instance.new("UIListLayout", card)
+row.FillDirection = Enum.FillDirection.Horizontal
+row.Padding = UDim.new(0, 12)
+row.VerticalAlignment = Enum.VerticalAlignment.Top
+
+-- ==== Avatar (3x3 style: 120x120)
+local avatarWrap = Instance.new("Frame")
+avatarWrap.BackgroundTransparency = 1
+avatarWrap.Size = UDim2.new(0, 120, 0, 120)
+avatarWrap.Parent = card
+
 local avatar = Instance.new("ImageLabel")
-avatar.BackgroundColor3 = Theme.bg
-avatar.Image = fetchAvatarUrl()
-avatar.Size = UDim2.new(0, 110, 0, 110)
-avatar.Position = UDim2.fromOffset(12,12)
-avatar.Parent = card
-corner(avatar,8); stroke(avatar,Theme.accB,1).Transparency=.35
+avatar.BackgroundColor3 = Theme.card
+avatar.Size = UDim2.new(1, 0, 1, 0)
+avatar.Parent = avatarWrap
+avatar.ScaleType = Enum.ScaleType.Fit
+corner(avatar, 10); stroke(avatar, Theme.accB, 1).Transparency = .4
 
--- Kolom kanan (tabel 2 kolom sejajar)
-local right = Instance.new("Frame")
-right.BackgroundTransparency = 1
-right.Size = UDim2.new(1, -(12+110+12), 1, -24)
-right.Position = UDim2.fromOffset(110+12+12,12)
-right.Parent = card
+-- get thumb
+pcall(function()
+  local t, isReady = Players:GetUserThumbnailAsync(LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+  avatar.Image = t
+end)
 
-local vlist = Instance.new("UIListLayout", right)
-vlist.Padding = UDim.new(0,8)
-vlist.SortOrder = Enum.SortOrder.LayoutOrder
+-- ==== Right side info (keys left aligned, values with marquee)
+local info = Instance.new("Frame")
+info.BackgroundTransparency = 1
+info.Size = UDim2.new(1, -132, 1, -0) -- a bit more to the LEFT
+info.Parent = card
 
-local function row(labelText, valueText)
+local infoList = Instance.new("UIListLayout", info)
+infoList.Padding = UDim.new(0, 10)
+
+local function keyValueRow(keyText)
   local r = Instance.new("Frame")
-  r.BackgroundTransparency = 1
-  r.Size = UDim2.new(1,0,0,22)
-  r.Parent = right
+  r.BackgroundColor3 = Theme.card
+  r.Size = UDim2.new(1, 0, 0, 54)
+  r.Parent = info
+  corner(r, 10); stroke(r, Theme.accA, 1).Transparency = .65
 
-  local rl = Instance.new("TextLabel")
-  rl.BackgroundTransparency = 1
-  rl.Text = labelText
-  rl.Font = Enum.Font.GothamSemibold
-  rl.TextSize = 14
-  rl.TextColor3 = Theme.text
-  rl.TextXAlignment = Enum.TextXAlignment.Left
-  rl.Size = UDim2.new(0,120,1,0)
-  rl.Position = UDim2.fromOffset(0,0)
-  rl.Parent = r
+  local rPad = Instance.new("UIPadding", r)
+  rPad.PaddingLeft = UDim.new(0, 12)   -- nudged left
+  rPad.PaddingRight = UDim.new(0, 12)
+  rPad.PaddingTop = UDim.new(0, 8)
+  rPad.PaddingBottom = UDim.new(0, 8)
 
-  local rv = Instance.new("TextLabel")
-  rv.BackgroundTransparency = 1
-  rv.Text = valueText
-  rv.Font = Enum.Font.Gotham
-  rv.TextSize = 14
-  rv.TextColor3 = Theme.text2
-  rv.TextXAlignment = Enum.TextXAlignment.Left
-  rv.TextWrapped = true
-  rv.TextTruncate = Enum.TextTruncate.AtEnd
-  rv.Size = UDim2.new(1,-(120+8),1,0)
-  rv.Position = UDim2.fromOffset(120+8,0)
-  rv.Parent = r
-  return rv
+  local h = Instance.new("UIListLayout", r)
+  h.FillDirection = Enum.FillDirection.Horizontal
+  h.Padding = UDim.new(0, 8)
+  h.VerticalAlignment = Enum.VerticalAlignment.Center
+
+  -- key label (fixed width, a bit smaller to bring value left)
+  local key = Instance.new("TextLabel")
+  key.BackgroundTransparency = 1
+  key.Size = UDim2.new(0, 110, 1, 0)
+  key.Font = Enum.Font.GothamSemibold
+  key.TextSize = 16
+  key.TextXAlignment = Enum.TextXAlignment.Left
+  key.TextColor3 = Theme.text
+  key.Text = keyText
+  key.Parent = r
+
+  -- value container (clips, used by marquee if overflow)
+  local valueClip = Instance.new("Frame")
+  valueClip.BackgroundTransparency = 1
+  valueClip.ClipsDescendants = true
+  valueClip.Size = UDim2.new(1, -110 - 8, 1, 0)
+  valueClip.Parent = r
+
+  return r, valueClip
 end
 
-row("Map:",        fetchMapName())
-row("Username:",   LP.DisplayName)                            -- pakai DisplayName
-row("Account Age:", tostring(LP.AccountAge) .. " days")
-row("Bio:",        fetchBio())
+-- ==== Marquee helper (only if content wider than clip)
+local function setMarquee(parentClip, text, opts)
+  opts = opts or {}
+  local font = opts.Font or Enum.Font.Gotham
+  local size = opts.TextSize or 16
+  local color = opts.TextColor3 or Theme.text
+  local gap   = opts.Gap or 40
+  local speed = opts.Speed or 60 -- pixels per second
+
+  -- measure
+  local meas = Instance.new("TextLabel")
+  meas.Size = UDim2.new(0, 9999, 0, 0)
+  meas.Visible = false
+  meas.Text = text
+  meas.Font = font
+  meas.TextSize = size
+  meas.Parent = parentClip
+  local w = meas.TextBounds.X
+  meas:Destroy()
+
+  -- if fits: simple label (no marquee)
+  if w <= parentClip.AbsoluteSize.X or w == 0 then
+    local lbl = Instance.new("TextLabel")
+    lbl.BackgroundTransparency = 1
+    lbl.Size = UDim2.new(1, 0, 1, 0)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Font = font
+    lbl.TextSize = size
+    lbl.TextColor3 = color
+    lbl.Text = text
+    lbl.Parent = parentClip
+    return
+  end
+
+  -- scrolling group
+  local holder = Instance.new("Frame")
+  holder.BackgroundTransparency = 1
+  holder.Size = UDim2.new(0, w*2 + gap, 1, 0) -- two copies + gap
+  holder.Parent = parentClip
+
+  local a = Instance.new("TextLabel")
+  a.BackgroundTransparency = 1
+  a.Font = font; a.TextSize = size; a.TextColor3 = color
+  a.TextXAlignment = Enum.TextXAlignment.Left
+  a.Size = UDim2.new(0, w, 1, 0); a.Position = UDim2.new(0, 0, 0, 0)
+  a.Text = text; a.Parent = holder
+
+  local b = a:Clone()
+  b.Position = UDim2.new(0, w + gap, 0, 0)
+  b.Parent = holder
+
+  -- animate forever
+  task.spawn(function()
+    while holder.Parent do
+      local total = w + gap
+      holder.Position = UDim2.new(0, 0, 0, 0)
+      local t = total / speed
+      local tw = TweenService:Create(holder, TweenInfo.new(t, Enum.EasingStyle.Linear, Enum.EasingDirection.In), {Position = UDim2.new(0, -total, 0, 0)})
+      tw:Play(); tw.Completed:Wait()
+    end
+  end)
+end
+
+-- ==== fetch data
+local placeName = ("[%s]"):format("UPDATE!")  -- prefix if kamu suka gaya ini
+pcall(function()
+  local info = MarketplaceService:GetProductInfo(game.PlaceId)
+  if info and info.Name then placeName = info.Name end
+end)
+
+local displayName = LP.DisplayName or LP.Name
+local accountAge  = tostring(LP.AccountAge).." days"
+
+local bioText = "—"
+pcall(function()
+  local raw = game:HttpGet(("https://users.roblox.com/v1/users/%d"):format(LP.UserId))
+  local data = HttpService:JSONDecode(raw)
+  if type(data)=="table" and type(data.description)=="string" and #data.description>0 then
+    bioText = data.description
+  end
+end)
+
+-- ==== rows
+do
+  local _, clip = keyValueRow("Map:")
+  setMarquee(clip, placeName, {TextSize=16})
+end
+
+do
+  local _, clip = keyValueRow("Username:")
+  setMarquee(clip, displayName, {TextSize=16})
+end
+
+do
+  local _, clip = keyValueRow("Account Age:")
+  setMarquee(clip, accountAge, {TextSize=16})
+end
+
+do
+  local _, clip = keyValueRow("Bio:")
+  setMarquee(clip, bioText, {TextSize=16, Speed=50})
+end
