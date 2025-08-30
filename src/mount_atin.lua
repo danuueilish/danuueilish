@@ -1,16 +1,12 @@
 -- src/mount_atin.lua
--- Mount Atin : Checkpoint + Auto Summit + Poseidon Quest (rapi + aman + collapsible)
+-- Mount Atin : Checkpoint + Poseidon Quest (rapi + aman)
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
 
 local Players = game:GetService("Players")
 local UIS     = game:GetService("UserInputService")
-local TP      = game:GetService("TeleportService")
-local GuiServ = game:GetService("GuiService")
-local Http    = game:GetService("HttpService")
 local LP      = Players.LocalPlayer
 
--- THEME
 local Theme = {
   bg    = Color3.fromRGB(24,20,40),
   card  = Color3.fromRGB(44,36,72),
@@ -33,7 +29,7 @@ local function HRP()
   return ch:FindFirstChild("HumanoidRootPart"), ch:FindFirstChildOfClass("Humanoid")
 end
 
--- Teleport aman
+-- Teleport aman: pad sementara + nolkan velocity biar gak jatuh
 local function safeTP(pos)
   local hrp, hum = HRP(); if not hrp then return false end
   local pad = Instance.new("Part")
@@ -89,49 +85,10 @@ local function posFrom(inst)
 end
 
 ----------------------------------------------------------------
--- COLLAPSIBLE ROOT (pakai container bawaan hub, tidak bikin judul dobel)
+-- UI SUB-SECTIONS
 ----------------------------------------------------------------
-local secRoot = UI.MountSections["Mount Atin"]  -- container isi fitur
--- cari judul bawaan hub dan ubah jadi tombol toggle
-local outerCard = secRoot.Parent
-local titleLabel
-for _,d in ipairs(outerCard:GetDescendants()) do
-  if d:IsA("TextLabel") and (d.Text or ""):lower():find("mount atin") then titleLabel = d break end
-end
+local secRoot = UI.MountSections["Mount Atin"]
 
--- overlay tombol pada area judul (tanpa membuat judul baru)
-local headerBtn = Instance.new("TextButton")
-headerBtn.AutoButtonColor = false
-headerBtn.BackgroundTransparency = 1
-headerBtn.Text = "" -- tak menambah tulisan; tetap pakai label bawaan hub
-headerBtn.Size = UDim2.new(1, -12, 0, 44)
-headerBtn.Position = UDim2.fromOffset(6, 6)
-headerBtn.ZIndex = 2
-headerBtn.Parent = outerCard
-
--- ikon chevron kecil di kiri judul
-local chevron = Instance.new("TextLabel")
-chevron.BackgroundTransparency = 1
-chevron.Font = Enum.Font.GothamBold
-chevron.TextSize = 18
-chevron.TextColor3 = Theme.text
-chevron.Text = "▸"
-chevron.Size = UDim2.fromOffset(18, 18)
-chevron.Position = UDim2.fromOffset(10, 14)
-chevron.ZIndex = 3
-chevron.Parent = outerCard
-
--- state awal tertutup
-secRoot.Visible = false
-local function setOpen(open)
-  secRoot.Visible = open
-  chevron.Text = open and "▾" or "▸"
-end
-headerBtn.MouseButton1Click:Connect(function() setOpen(not secRoot.Visible) end)
-
-----------------------------------------------------------------
--- SUB-SECTION BUILDER
-----------------------------------------------------------------
 local function newSub(titleText)
   local box = Instance.new("Frame")
   box.BackgroundColor3 = Theme.card
@@ -170,15 +127,16 @@ local function newSub(titleText)
 end
 
 ----------------------------------------------------------------
--- SECTION: CHECKPOINT
+-- SUB: CHECKPOINT (dropdown kanan + Go To)
 ----------------------------------------------------------------
 local cpInner = newSub("Checkpoint")
 
--- Row: [dropdown + GoTo] (tanpa label kiri)
+-- Row: [dropdown + GoTo] (label "Checkpoint" DIHAPUS sesuai minta)
 local row = Instance.new("Frame"); row.BackgroundTransparency=1; row.Size=UDim2.new(1,0,0,36); row.Parent=cpInner
 local h = Instance.new("UIListLayout", row)
 h.FillDirection=Enum.FillDirection.Horizontal; h.Padding=UDim.new(0,8); h.VerticalAlignment=Enum.VerticalAlignment.Center
 
+-- container kanan full width
 local right = Instance.new("Frame")
 right.BackgroundTransparency=1; right.Size=UDim2.new(1,0,1,0); right.Parent=row
 local hr = Instance.new("UIListLayout", right)
@@ -186,15 +144,15 @@ hr.FillDirection=Enum.FillDirection.Horizontal; hr.Padding=UDim.new(0,8)
 hr.HorizontalAlignment = Enum.HorizontalAlignment.Left
 hr.VerticalAlignment = Enum.VerticalAlignment.Center
 
--- Dropdown
+-- Dropdown button
 local dd = Instance.new("TextButton")
 dd.AutoButtonColor=false; dd.Text="Pilih checkpoint..."
 dd.Font=Enum.Font.GothamSemibold; dd.TextSize=14; dd.TextColor3=Theme.text
 dd.TextWrapped=false; dd.TextTruncate=Enum.TextTruncate.AtEnd
-dd.BackgroundColor3=Theme.card; dd.Size=UDim2.new(1,-(120+8),1,0); dd.Parent=right
+dd.BackgroundColor3=Theme.card; dd.Size=UDim2.new(0,260,1,0); dd.Parent=right
 corner(dd,8); stroke(dd,Theme.accA,1).Transparency=.45
 
--- Panel list (parent = secRoot agar tak kepotong)
+-- Panel list (ditaruh di root section agar tidak kepotong)
 local panel = Instance.new("Frame")
 panel.Visible=false; panel.BackgroundColor3=Theme.card
 panel.Size=UDim2.new(0,260,0,184); panel.Parent=secRoot
@@ -210,6 +168,7 @@ l:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
   listScroll.CanvasSize=UDim2.new(0,0,0,l.AbsoluteContentSize.Y+8)
 end)
 
+-- Posisi dropdown list DI-CLAMP supaya tidak keluar kotak section
 local function placePanel()
   local rootAbs = secRoot.AbsolutePosition
   local rootSize = secRoot.AbsoluteSize
@@ -229,7 +188,7 @@ local function placePanel()
   panel.Position = UDim2.fromOffset(x, y)
 end
 
--- Data Checkpoints
+-- Data CP
 local checkpoints = {
   {"Basecamp",               Vector3.new(  16.501,   54.470, -1082.821)},
   {"Summit Leaderboard",     Vector3.new(  31.554,   53.176, -1030.635)},
@@ -304,7 +263,7 @@ go.MouseButton1Click:Connect(function()
   safeTP(checkpoints[selectedIndex][2])
 end)
 
--- Catatan CP
+-- Catatan
 do
   local note = Instance.new("TextLabel")
   note.BackgroundTransparency=1; note.TextWrapped=true; note.TextColor3=Theme.text2; note.Font=Enum.Font.Gotham; note.TextSize=13
@@ -313,159 +272,228 @@ do
 end
 
 ----------------------------------------------------------------
--- SECTION: AUTO SUMMIT
+-- SUB: AUTO SUMMIT (baru, di tengah)
 ----------------------------------------------------------------
-local summitInner = newSub("Auto Summit")
+local Http            = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local GuiService      = game:GetService("GuiService")
 
--- persist file
-local FILE = "danuu_atin_auto.json"
-local function saveState(tbl) pcall(function() if writefile then writefile(FILE, Http:JSONEncode(tbl)) end end) end
-local function loadState()
-  if not readfile or not isfile or not isfile(FILE) then return {loop=true, rj=true, dLoop=3, dRJ=5} end
-  local ok, t = pcall(function() return Http:JSONDecode(readfile(FILE)) end)
-  if ok and type(t)=="table" then
-    t.dLoop = tonumber(t.dLoop) or 3
-    t.dRJ   = tonumber(t.dRJ)   or 5
-    t.loop  = not not t.loop
-    t.rj    = not not t.rj
-    return t
-  end
-  return {loop=true, rj=true, dLoop=3, dRJ=5}
-end
-local state = loadState()
+local asInner = newSub("Auto Summit")
 
 -- Cara Pakai
 do
-  local info = Instance.new("TextLabel")
-  info.BackgroundTransparency=1; info.TextColor3=Theme.text2; info.Font=Enum.Font.Gotham; info.TextSize=13; info.TextWrapped=true
-  info.Text = "Cara Pakai:\n1) Auto execute aktif.\n2) Isi delay Auto Loop (default 3s). Disarankan >=3s.\n3) Isi delay Auto Rejoin 1–5s LEBIH BESAR dari Auto Loop (contoh 5s).\n4) Tinggal tidur."
-  info.Size = UDim2.new(1,0,0,64)
-  info.Parent = summitInner
+  local t = Instance.new("TextLabel")
+  t.BackgroundTransparency=1
+  t.TextWrapped=true
+  t.Font=Enum.Font.Gotham
+  t.TextSize=13
+  t.TextColor3=Theme.text2
+  t.Text = "Cara Pakai:\n1) Pastikan script auto-execute.\n2) Masukkan delay sesuai device (default 3s). Disarankan ≥3s biar sempat mematikan toggle.\n3) Isi delay Auto Rejoin (disarankan 1–5s di atas delay loop; default 5s).\n4) Nyalakan toggle-nya dan tinggal tidur 😴."
+  t.Size = UDim2.new(1,0,0,64)
+  t.Parent = asInner
 end
 
--- Row 1: [box delay loop] [toggle loop]
-local r1 = Instance.new("Frame"); r1.BackgroundTransparency=1; r1.Size=UDim2.new(1,0,0,36); r1.Parent=summitInner
-local r1l=Instance.new("UIListLayout", r1); r1l.FillDirection=Enum.FillDirection.Horizontal; r1l.Padding=UDim.new(0,8)
+-- Baris 1: [Box delay Auto Loop] [Toggle Auto Loop]
+local asRow1 = Instance.new("Frame"); asRow1.BackgroundTransparency=1; asRow1.Size=UDim2.new(1,0,0,34); asRow1.Parent=asInner
+local asRow1Lay = Instance.new("UIListLayout", asRow1); asRow1Lay.FillDirection=Enum.FillDirection.Horizontal; asRow1Lay.Padding=UDim.new(0,8)
 
-local boxLoop = Instance.new("TextBox")
-boxLoop.BackgroundColor3=Theme.card; boxLoop.TextColor3=Theme.text; boxLoop.Font=Enum.Font.Gotham; boxLoop.TextSize=14
-boxLoop.ClearTextOnFocus=false; boxLoop.Text = tostring(state.dLoop); boxLoop.PlaceholderText="3"
-boxLoop.Size=UDim2.new(1,-(140+8),1,0); boxLoop.Parent=r1
-corner(boxLoop,8); stroke(boxLoop,Theme.accA,1).Transparency=.5
+local loopBox = Instance.new("TextBox")
+loopBox.Size=UDim2.new(0.6, -4, 1, 0)
+loopBox.BackgroundColor3=Theme.card
+loopBox.TextColor3=Theme.text
+loopBox.PlaceholderText="Delay Auto Loop (detik) • default 3"
+loopBox.PlaceholderColor3=Theme.text2
+loopBox.ClearTextOnFocus=false
+loopBox.Text=""
+loopBox.Font=Enum.Font.Gotham
+loopBox.TextSize=14
+loopBox.TextTruncate=Enum.TextTruncate.AtEnd
+corner(loopBox,8); stroke(loopBox,Theme.accA,1).Transparency=.5
+loopBox.Parent = asRow1
 
-local btnLoop = Instance.new("TextButton")
-btnLoop.AutoButtonColor=false; btnLoop.BackgroundColor3=Theme.accA; btnLoop.Font=Enum.Font.GothamSemibold; btnLoop.TextSize=14; btnLoop.TextColor3=Theme.text
-btnLoop.Text = "Auto Loop: "..(state.loop and "ON" or "OFF")
-btnLoop.Size=UDim2.new(0,140,1,0); btnLoop.Parent=r1
-corner(btnLoop,8); stroke(btnLoop,Theme.accB,1).Transparency=.35
+local loopToggle = Instance.new("TextButton")
+loopToggle.Size=UDim2.new(0.4, -4, 1, 0)
+loopToggle.Text="Auto Loop: OFF"
+loopToggle.Font=Enum.Font.GothamSemibold
+loopToggle.TextSize=14
+loopToggle.TextColor3=Theme.text
+loopToggle.BackgroundColor3=Theme.card
+loopToggle.AutoButtonColor=false
+corner(loopToggle,8); stroke(loopToggle,Theme.accA,1).Transparency=.5
+loopToggle.Parent = asRow1
 
--- Row 2: [box delay RJ] [toggle RJ]
-local r2 = Instance.new("Frame"); r2.BackgroundTransparency=1; r2.Size=UDim2.new(1,0,0,36); r2.Parent=summitInner
-local r2l=Instance.new("UIListLayout", r2); r2l.FillDirection=Enum.FillDirection.Horizontal; r2l.Padding=UDim.new(0,8)
+-- Baris 2: [Box delay Auto Rejoin] [Toggle Auto Rejoin]
+local asRow2 = Instance.new("Frame"); asRow2.BackgroundTransparency=1; asRow2.Size=UDim2.new(1,0,0,34); asRow2.Parent=asInner
+local asRow2Lay = Instance.new("UIListLayout", asRow2); asRow2Lay.FillDirection=Enum.FillDirection.Horizontal; asRow2Lay.Padding=UDim.new(0,8)
 
-local boxRJ = Instance.new("TextBox")
-boxRJ.BackgroundColor3=Theme.card; boxRJ.TextColor3=Theme.text; boxRJ.Font=Enum.Font.Gotham; boxRJ.TextSize=14
-boxRJ.ClearTextOnFocus=false; boxRJ.Text = tostring(state.dRJ); boxRJ.PlaceholderText="5"
-boxRJ.Size=UDim2.new(1,-(140+8),1,0); boxRJ.Parent=r2
-corner(boxRJ,8); stroke(boxRJ,Theme.accA,1).Transparency=.5
+local rjBox = Instance.new("TextBox")
+rjBox.Size=UDim2.new(0.6, -4, 1, 0)
+rjBox.BackgroundColor3=Theme.card
+rjBox.TextColor3=Theme.text
+rjBox.PlaceholderText="Delay Auto Rejoin (detik) • default 5"
+rjBox.PlaceholderColor3=Theme.text2
+rjBox.ClearTextOnFocus=false
+rjBox.Text=""
+rjBox.Font=Enum.Font.Gotham
+rjBox.TextSize=14
+rjBox.TextTruncate=Enum.TextTruncate.AtEnd
+corner(rjBox,8); stroke(rjBox,Theme.accA,1).Transparency=.5
+rjBox.Parent = asRow2
 
-local btnRJ = Instance.new("TextButton")
-btnRJ.AutoButtonColor=false; btnRJ.BackgroundColor3=Theme.accA; btnRJ.Font=Enum.Font.GothamSemibold; btnRJ.TextSize=14; btnRJ.TextColor3=Theme.text
-btnRJ.Text = "Auto Rejoin: "..(state.rj and "ON" or "OFF")
-btnRJ.Size=UDim2.new(0,140,1,0); btnRJ.Parent=r2
-corner(btnRJ,8); stroke(btnRJ,Theme.accB,1).Transparency=.35
+local rjToggle = Instance.new("TextButton")
+rjToggle.Size=UDim2.new(0.4, -4, 1, 0)
+rjToggle.Text="Auto Rejoin: OFF"
+rjToggle.Font=Enum.Font.GothamSemibold
+rjToggle.TextSize=14
+rjToggle.TextColor3=Theme.text
+rjToggle.BackgroundColor3=Theme.card
+rjToggle.AutoButtonColor=false
+corner(rjToggle,8); stroke(rjToggle,Theme.accA,1).Transparency=.5
+rjToggle.Parent = asRow2
 
--- Status line (pakai style Poseidon)
-local statusAuto = Instance.new("TextLabel")
-statusAuto.BackgroundTransparency=1; statusAuto.TextColor3=Theme.text2; statusAuto.Font=Enum.Font.Gotham; statusAuto.TextSize=13
-statusAuto.Text="Status: Idle"; statusAuto.Size=UDim2.new(1,0,0,22); statusAuto.Parent=summitInner
+-- ====== Logic Auto Summit
+local fileOK = (writefile and readfile and isfile) and true or false
+local AS_FILE = ("danuu_as_%s.json"):format(tostring(game.PlaceId))
 
-local function setAutoStatus(t, good) statusAuto.Text="Status: "..t; statusAuto.TextColor3 = good and Theme.good or Theme.text2 end
-local function parseDelay(s, def) local n = tonumber(s) or def; n = math.max(0, n); return n end
+local summitPos = Vector3.new(781.809, 2162.143, 3920.971)
 
--- toggles persist
-btnLoop.MouseButton1Click:Connect(function()
-  state.loop = not state.loop
-  btnLoop.Text = "Auto Loop: "..(state.loop and "ON" or "OFF")
-  saveState(state)
+local function summitDance(center)
+  local hrp = select(1, HRP()); if not hrp then return end
+  local dir = workspace.CurrentCamera and workspace.CurrentCamera.CFrame.LookVector or hrp.CFrame.LookVector
+  dir = Vector3.new(dir.X,0,dir.Z); if dir.Magnitude < 0.1 then dir = Vector3.new(1,0,0) end; dir = dir.Unit
+  local R = 8
+  for _=1,3 do
+    hrp.CFrame = CFrame.new(center + dir*R + Vector3.new(0,2.4,0)); task.wait(0.12)
+    hrp.CFrame = CFrame.new(center - dir*R + Vector3.new(0,2.4,0)); task.wait(0.12)
+    hrp.CFrame = CFrame.new(center + Vector3.new(0,2.4,0));         task.wait(0.12)
+  end
+end
+
+local state = {
+  loopDelay = 3,
+  rjDelay   = 5,
+  loopOn    = false,
+  rjOn      = false,
+}
+
+local function loadAS()
+  if not fileOK or not isfile(AS_FILE) then return end
+  local ok, data = pcall(function() return Http:JSONDecode(readfile(AS_FILE)) end)
+  if ok and typeof(data)=="table" then
+    if tonumber(data.loopDelay) then state.loopDelay = math.max(0, tonumber(data.loopDelay)) end
+    if tonumber(data.rjDelay)   then state.rjDelay   = math.max(0, tonumber(data.rjDelay))   end
+    state.loopOn = data.loopOn and true or false
+    state.rjOn   = data.rjOn   and true or false
+  end
+end
+
+local function saveAS()
+  if not fileOK then return end
+  pcall(function()
+    writefile(AS_FILE, Http:JSONEncode({
+      loopDelay = state.loopDelay,
+      rjDelay   = state.rjDelay,
+      loopOn    = state.loopOn,
+      rjOn      = state.rjOn,
+    }))
+  end)
+end
+
+local function refreshASUI()
+  loopToggle.Text = "Auto Loop: " .. (state.loopOn and "ON" or "OFF")
+  rjToggle.Text   = "Auto Rejoin: " .. (state.rjOn and "ON" or "OFF")
+  if loopBox.Text == "" then loopBox.Text = tostring(state.loopDelay) end
+  if rjBox.Text   == "" then rjBox.Text   = tostring(state.rjDelay)   end
+end
+
+local function normNumber(s, default)
+  local n = tonumber((s or ""):match("[-%d%.]+") or "")
+  if not n then return default end
+  if n ~= n or n == math.huge or n == -math.huge then return default end
+  return math.max(0, n)
+end
+
+loadAS(); refreshASUI()
+
+loopBox.FocusLost:Connect(function()
+  state.loopDelay = normNumber(loopBox.Text, 3)
+  loopBox.Text = tostring(state.loopDelay)
+  saveAS()
 end)
-btnRJ.MouseButton1Click:Connect(function()
-  state.rj = not state.rj
-  btnRJ.Text = "Auto Rejoin: "..(state.rj and "ON" or "OFF")
-  saveState(state)
+
+rjBox.FocusLost:Connect(function()
+  state.rjDelay = normNumber(rjBox.Text, 5)
+  rjBox.Text = tostring(state.rjDelay)
+  saveAS()
 end)
 
-boxLoop.FocusLost:Connect(function()
-  state.dLoop = parseDelay(boxLoop.Text, 3); boxLoop.Text=tostring(state.dLoop); saveState(state)
-end)
-boxRJ.FocusLost:Connect(function()
-  state.dRJ = parseDelay(boxRJ.Text, 5); boxRJ.Text=tostring(state.dRJ); saveState(state)
+loopToggle.MouseButton1Click:Connect(function()
+  state.loopOn = not state.loopOn
+  refreshASUI()
+  saveAS()
 end)
 
--- Auto Rejoin listener (aktif hanya bila ON)
+-- Auto Rejoin helpers
 local function doRJ()
-  local place, job = game.PlaceId, game.JobId
+  local placeId, jobId = game.PlaceId, game.JobId
   if #Players:GetPlayers() <= 1 then
     LP:Kick("\nRejoining...")
     task.wait()
-    TP:Teleport(place, LP)
+    TeleportService:Teleport(placeId, LP)
   else
-    TP:TeleportToPlaceInstance(place, job, LP)
+    TeleportService:TeleportToPlaceInstance(placeId, jobId, LP)
   end
 end
-GuiServ.ErrorMessageChanged:Connect(function()
-  if state.rj then doRJ() end
+
+local errorConn
+rjToggle.MouseButton1Click:Connect(function()
+  state.rjOn = not state.rjOn
+  refreshASUI()
+  saveAS()
+
+  if state.rjOn then
+    if not errorConn then
+      errorConn = GuiService.ErrorMessageChanged:Connect(function()
+        -- jika ada error modal dari Roblox → langsung RJ
+        task.defer(doRJ)
+      end)
+    end
+  else
+    if errorConn then errorConn:Disconnect(); errorConn=nil end
+  end
 end)
 
--- LOOP: Auto Summit (teleport ke summit + goyang 3x)
+-- Worker loop
 task.spawn(function()
-  local SUMMIT = Vector3.new(781.809, 2162.143, 3920.971)
-  while task.wait(0.1) do
-    if not state.loop then setAutoStatus("Idle", false) continue end
-    local dLoop = parseDelay(boxLoop.Text, state.dLoop or 3)
-    local dRJ   = parseDelay(boxRJ.Text,   state.dRJ   or 5)
-    state.dLoop, state.dRJ = dLoop, dRJ
-    saveState(state)
+  while secRoot.Parent do
+    if state.loopOn then
+      -- 1) TP ke Summit + “dance”
+      safeTP(summitPos)
+      summitDance(summitPos)
 
-    -- TP ke summit
-    setAutoStatus("Teleport ke Summit…", false)
-    safeTP(SUMMIT); task.wait(0.15)
-
-    -- gerak maju-mundur 3x sejauh 8 stud
-    local hrp = HRP()
-    if hrp then
-      local dir = workspace.CurrentCamera and workspace.CurrentCamera.CFrame.LookVector or hrp.CFrame.LookVector
-      dir = Vector3.new(dir.X,0,dir.Z); if dir.Magnitude < 0.1 then dir = Vector3.new(1,0,0) end; dir = dir.Unit
-      local R = 8
-      for _=1,3 do
-        hrp.CFrame = CFrame.new(SUMMIT) + dir*R; task.wait(0.12)
-        hrp.CFrame = CFrame.new(SUMMIT) - dir*R; task.wait(0.12)
-        hrp.CFrame = CFrame.new(SUMMIT);         task.wait(0.12)
-      end
-    end
-
-    setAutoStatus(("Looping (delay %ss)"), true)
-    local t0=tick()
-    while tick()-t0 < dLoop do
-      if not state.loop then break end
-      task.wait(0.05)
-    end
-
-    -- rejoin opsional (dijalankan setelah loop delay, jika aktif)
-    if state.loop and state.rj then
-      setAutoStatus("Auto Rejoin…", false)
-      local tR=tick()
-      while tick()-tR < dRJ do
-        if not state.rj then break end
+      -- 2) Tunggu delay loop (bisa dimatikan kapan saja)
+      local t0 = tick()
+      while state.loopOn and tick() - t0 < (state.loopDelay or 3) do
         task.wait(0.05)
       end
-      if state.rj then doRJ() end
+
+      -- 3) Auto Rejoin (opsional) setelah cycle
+      if state.loopOn and state.rjOn then
+        local tr0 = tick()
+        while state.loopOn and state.rjOn and tick() - tr0 < (state.rjDelay or 5) do
+          task.wait(0.05)
+        end
+        if state.loopOn and state.rjOn then
+          doRJ()
+        end
+      end
     end
+    task.wait(0.05)
   end
 end)
 
 ----------------------------------------------------------------
--- SECTION: POSEIDON QUEST (dropdown manual + Auto)
+-- SUB: POSEIDON QUEST (dropdown manual + Auto)
 ----------------------------------------------------------------
 local pq = newSub("Poseidon Quest")
 
@@ -474,13 +502,16 @@ status.BackgroundTransparency=1; status.TextColor3=Theme.text2; status.Font=Enum
 status.Text="Status: —"; status.Size=UDim2.new(1,0,0,22); status.Parent=pq
 local function setStatus(txt, good) status.Text = "Status: "..txt; status.TextColor3 = good and Theme.good or Theme.text2 end
 
--- Row manual: [Dropdown] [Go To]
+-- ROW: [Dropdown manual] [Go To]  <<<<< FIX: tombol Go To tidak kepotong
 local prow = Instance.new("Frame"); prow.BackgroundTransparency=1; prow.Size=UDim2.new(1,0,0,36); prow.Parent=pq
 local pl = Instance.new("UIListLayout", prow)
 pl.FillDirection=Enum.FillDirection.Horizontal; pl.Padding=UDim.new(0,8); pl.VerticalAlignment=Enum.VerticalAlignment.Center
 
 local pRight = Instance.new("Frame")
-pRight.BackgroundTransparency=1; pRight.Size = UDim2.new(1, -(120+8), 1, 0); pRight.Parent = prow
+pRight.BackgroundTransparency=1
+pRight.Size = UDim2.new(1, -(120+8), 1, 0) -- sisakan ruang buat tombol
+pRight.Parent = prow
+
 local pLay   = Instance.new("UIListLayout", pRight)
 pLay.FillDirection=Enum.FillDirection.Horizontal; pLay.Padding=UDim.new(0,8)
 pLay.HorizontalAlignment = Enum.HorizontalAlignment.Left
@@ -499,7 +530,7 @@ pGo.Font=Enum.Font.GothamSemibold; pGo.TextSize=14; pGo.TextColor3=Theme.text
 pGo.BackgroundColor3=Theme.accA; pGo.Size=UDim2.new(0,120,1,0); pGo.Parent=prow
 corner(pGo,8); stroke(pGo,Theme.accB,1).Transparency=.3
 
--- Panel manual (parent = secRoot, clamped)
+-- Panel list manual (clamped)
 local pPanel = Instance.new("Frame")
 pPanel.Visible=false; pPanel.BackgroundColor3=Theme.card
 pPanel.Size=UDim2.new(0,260,0,184); pPanel.Parent=secRoot
@@ -566,11 +597,12 @@ end)
 pGo.MouseButton1Click:Connect(function()
   if not selectedManualIndex then pdd.Text="Pilih titik dulu…"; return end
   local pos = manualPoints[selectedManualIndex][2]
-  setStatus(("Teleport: %s"):format(manualPoints[selectedManualIndex][1]), false)
+  -- Status di Poseidon langsung memantau juga
+  -- (biarkan seperti sekarang: Status: ... akan diupdate ketika tombol Auto dijalankan)
   safeTP(pos)
 end)
 
--- Tombol Auto Quest Poseidon
+-- Tombol Auto Quest (tetap)
 local function mkBtn(txt, cb)
   local b=Instance.new("TextButton")
   b.AutoButtonColor=false; b.Text=txt; b.Font=Enum.Font.GothamSemibold; b.TextSize=14; b.TextColor3=Theme.text
@@ -609,10 +641,7 @@ mkBtn("Auto Quest Poseidon", function()
   task.wait(0.6)
 
   setStatus("Auto: Aura…",false)
-  local h2 = findOneByKeywords("poseidonhat") or findOneByKeywords("helmet")
-  if h2 then safeTP(posFrom(h2)); task.wait(0.2); fireAllPrompts(h2); setStatus("Selesai ✓",true)
+  local h = findOneByKeywords("poseidonhat") or findOneByKeywords("helmet")
+  if h then safeTP(posFrom(h)); task.wait(0.2); fireAllPrompts(h); setStatus("Selesai ✓",true)
   else setStatus("Helmet tidak ditemukan.",false) end
 end)
-
--- Buka/tutup default: tertutup
-setOpen(false)
