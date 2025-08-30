@@ -1,8 +1,8 @@
 local UI = _G.danuu_hub_ui; if not UI then return end
 local sec = UI.NewSection(UI.Tabs.Music, "Sticky Notes (Boombox IDs)")
 
-local boxName = Instance.new("TextBox"); boxName.Size=UDim2.new(1,0,0,32); boxName.PlaceholderText="Nama"; boxName.Parent=sec
-local boxId   = Instance.new("TextBox"); boxId.Size=UDim2.new(1,0,0,32); boxId.PlaceholderText="Kode/ID Musik"; boxId.Parent=sec
+local boxName = Instance.new(""); boxName.Size=UDim2.new(1,0,0,32); boxName.PlaceholderText="Nama"; boxName.Parent=sec
+local boxId   = Instance.new(""); boxId.Size=UDim2.new(1,0,0,32); boxId.PlaceholderText="Kode/ID Musik"; boxId.Parent=sec
 for _,tb in ipairs({boxName,boxId}) do
   tb.BackgroundColor3=Color3.fromRGB(44,36,72); tb.TextColor3=Color3.new(1,1,1); tb.Font=Enum.Font.Gotham; tb.TextSize=14
   local u=Instance.new("UICorner",tb); u.CornerRadius=UDim.new(0,8)
