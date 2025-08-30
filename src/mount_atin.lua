@@ -1,29 +1,186 @@
 -- src/mount_atin.lua
--- Mount Atin: layout rapi (tiap fitur 1 sub-section)
-
+-- Mount Atin : Checkpoint + Poseidon Quest (rapi + aman)
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
 
--- ambil warna dari UI kalau ada
-local Theme = UI.Theme or {
-  bg=Color3.fromRGB(24,20,40), card=Color3.fromRGB(44,36,72),
-  text=Color3.fromRGB(235,230,255), text2=Color3.fromRGB(190,180,220),
-  accA=Color3.fromRGB(125,84,255), accB=Color3.fromRGB(215,55,255)
+local Players = game:GetService("Players")
+local UIS     = game:GetService("UserInputService")
+local Tween   = game:GetService("TweenService")
+local LP      = Players.LocalPlayer
+
+local Theme = {
+  bg    = Color3.fromRGB(24,20,40),
+  card  = Color3.fromRGB(44,36,72),
+  text  = Color3.fromRGB(235,230,255),
+  text2 = Color3.fromRGB(190,180,220),
+  accA  = Color3.fromRGB(125,84,255),
+  accB  = Color3.fromRGB(215,55,255),
+  good  = Color3.fromRGB(106,212,123),
+  bad   = Color3.fromRGB(255,95,95),
 }
 
 local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p; return c end
-local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.55; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
+local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.6; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 
-local mountRoot = UI.MountSections["Mount Atin"]                     -- section “Mount Atin” (inner frame)
-local Sec = UI.NewSection                                             -- helper buat bikin sub-section
+----------------------------------------------------------------
+-- HELPERS
+----------------------------------------------------------------
+local function HRP()
+  local ch = LP.Character or LP.CharacterAdded:Wait()
+  return ch:FindFirstChild("HumanoidRootPart"), ch:FindFirstChildOfClass("Humanoid")
+end
 
---------------------------------------------------------------------
--- ============ Sub-section: CHECKPOINT =================-----------
---------------------------------------------------------------------
-local secCP = Sec(mountRoot, "Checkpoint")  -- sub-section di dalam Atin
+-- Teleport anti-jatuh: bikin pad sementara di bawah posisi target
+local function safeTP(pos)
+  local hrp, hum = HRP(); if not hrp then return false end
+  -- platform penyangga (client-side)
+  local pad = Instance.new("Part")
+  pad.Anchored, pad.CanCollide, pad.CanQuery, pad.CanTouch = true, true, false, false
+  pad.Transparency = 1
+  pad.Size = Vector3.new(16,1,16)
+  pad.Position = Vector3.new(pos.X, pos.Y - 3, pos.Z)
+  pad.Name = "danuu_temp_pad"
+  pad.Parent = workspace
 
--- data checkpoint (nama -> Vector3)
-local CP = {
+  -- nol-in velocity biar gak “kelempar”
+  hrp.AssemblyLinearVelocity = Vector3.zero
+  hrp.AssemblyAngularVelocity = Vector3.zero
+  if hum then hum:ChangeState(Enum.HumanoidStateType.Landed) end
+
+  task.wait(0.03)
+  hrp.CFrame = CFrame.new(pos + Vector3.new(0,2.4,0))
+  task.wait(0.06)
+
+  -- “nudge” kecil biar stabil
+  local look = workspace.CurrentCamera and workspace.CurrentCamera.CFrame.LookVector or Vector3.new(1,0,0)
+  look = Vector3.new(look.X,0,look.Z).Unit
+  hrp.CFrame = CFrame.new(pos + look*4 + Vector3.new(0,2.4,0))
+  task.wait(0.05)
+  hrp.CFrame = CFrame.new(pos + Vector3.new(0,2.4,0))
+
+  task.delay(0.6, function() if pad then pad:Destroy() end end)
+  return true
+end
+
+local function fireAllPrompts(root, holdTime)
+  if not root then return false end
+  local ok = false
+  for _,pp in ipairs(root:GetDescendants()) do
+    if pp:IsA("ProximityPrompt") then
+      ok = true
+      -- KRNL: fireproximityprompt tersedia
+      pcall(function() fireproximityprompt(pp, holdTime or 0.9) end)
+    end
+  end
+  return ok
+end
+
+local function findOneByKeywords(...)
+  local keys = {...}
+  local best
+  for _,inst in ipairs(workspace:GetDescendants()) do
+    if inst:IsA("BasePart") or inst:IsA("Model") then
+      local name = (inst.Name or ""):lower()
+      local hit = true
+      for _,k in ipairs(keys) do
+        if not string.find(name, k:lower(), 1, true) then hit=false break end
+      end
+      if hit then best = inst; break end
+    end
+  end
+  return best
+end
+
+local function posFrom(inst)
+  if not inst then return end
+  if inst:IsA("BasePart") then return inst.Position end
+  if inst.PrimaryPart then return inst.PrimaryPart.Position end
+  local cf = nil
+  pcall(function() cf = inst:GetPivot() end)
+  if cf then return cf.Position end
+end
+
+----------------------------------------------------------------
+-- UI SUB-SECTIONS
+----------------------------------------------------------------
+local secRoot = UI.MountSections["Mount Atin"]
+
+local function newSub(titleText)
+  local box = Instance.new("Frame")
+  box.BackgroundColor3 = Theme.card
+  box.Size = UDim2.new(1,-16,0,60)
+  box.Parent = secRoot
+  corner(box,10); stroke(box,Theme.accA,1).Transparency=.5
+
+  local title = Instance.new("TextLabel")
+  title.BackgroundTransparency = 1
+  title.Text = "  "..titleText
+  title.Font = Enum.Font.GothamBlack
+  title.TextSize = 18
+  title.TextColor3 = Theme.text
+  title.TextXAlignment = Enum.TextXAlignment.Left
+  title.Size = UDim2.new(1,-8,0,28)
+  title.Position = UDim2.fromOffset(8,6)
+  title.Parent = box
+
+  local inner = Instance.new("Frame")
+  inner.BackgroundTransparency = 1
+  inner.Size = UDim2.new(1,-16,0,0)
+  inner.Position = UDim2.fromOffset(8,36)
+  inner.Parent = box
+
+  local lay = Instance.new("UIListLayout", inner)
+  lay.Padding = UDim.new(0,8)
+
+  local function resize()
+    box.Size = UDim2.new(1,-16,0, math.max(60, 40 + lay.AbsoluteContentSize.Y))
+    inner.Size = UDim2.new(1,-16,0, lay.AbsoluteContentSize.Y)
+  end
+  lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resize)
+  task.defer(resize)
+
+  return inner
+end
+
+----------------------------------------------------------------
+-- SUB: CHECKPOINT (dropdown di kanan + Go To)
+----------------------------------------------------------------
+local cpInner = newSub("Checkpoint")
+
+-- row: [label kiri] [dropdown + GoTo kanan]
+local row = Instance.new("Frame"); row.BackgroundTransparency=1; row.Size=UDim2.new(1,0,0,36); row.Parent=cpInner
+local h = Instance.new("UIListLayout", row); h.FillDirection=Enum.FillDirection.Horizontal; h.Padding=UDim.new(0,8); h.VerticalAlignment=Enum.VerticalAlignment.Center
+
+local left = Instance.new("TextLabel"); left.BackgroundTransparency=1; left.Text="Checkpoint"; left.Font=Enum.Font.GothamBlack
+left.TextSize=16; left.TextColor3=Theme.text; left.Size=UDim2.new(0,120,1,0); left.Parent=row
+
+local right = Instance.new("Frame"); right.BackgroundTransparency=1; right.Size=UDim2.new(1,-(120+8),1,0); right.Parent=row
+local hr = Instance.new("UIListLayout", right); hr.FillDirection=Enum.FillDirection.Horizontal; hr.Padding=UDim.new(0,8)
+hr.HorizontalAlignment = Enum.HorizontalAlignment.Right; hr.VerticalAlignment = Enum.VerticalAlignment.Center
+
+-- dropdown button
+local dd = Instance.new("TextButton")
+dd.AutoButtonColor=false; dd.Text="Pilih checkpoint..."; dd.Font=Enum.Font.GothamSemibold; dd.TextSize=14; dd.TextColor3=Theme.text
+dd.TextWrapped=false; dd.TextTruncate=Enum.TextTruncate.AtEnd
+dd.BackgroundColor3=Theme.card; dd.Size=UDim2.new(0,260,1,0); dd.Parent=right
+corner(dd,8); stroke(dd,Theme.accA,1).Transparency=.45
+
+-- panel daftar
+local panel = Instance.new("Frame"); panel.Visible=false; panel.BackgroundColor3=Theme.card; panel.Size=UDim2.new(0,260,0,184); panel.Parent=secRoot
+panel.ClipsDescendants=true; panel.ZIndex=5; corner(panel,8); stroke(panel,Theme.accB,1).Transparency=.35
+
+local listScroll = Instance.new("ScrollingFrame", panel)
+listScroll.BackgroundTransparency=1; listScroll.Size=UDim2.fromScale(1,1); listScroll.ScrollBarThickness=6; listScroll.CanvasSize=UDim2.new(0,0,0,0); listScroll.ZIndex=6; listScroll.ClipsDescendants=true
+local l = Instance.new("UIListLayout", listScroll); l.Padding=UDim.new(0,6)
+l:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() listScroll.CanvasSize=UDim2.new(0,0,0,l.AbsoluteContentSize.Y+8) end)
+
+local function placePanel()
+  local abs = dd.AbsolutePosition; local rootAbs = panel.Parent.AbsolutePosition
+  panel.Position = UDim2.fromOffset(abs.X - rootAbs.X, (abs.Y - rootAbs.Y) + dd.AbsoluteSize.Y + 6)
+end
+
+-- data CP
+local checkpoints = {
   {"Basecamp",               Vector3.new(  16.501,   54.470, -1082.821)},
   {"Summit Leaderboard",     Vector3.new(  31.554,   53.176, -1030.635)},
   {"CP1",                    Vector3.new(   3.000,   11.911,  -408.000)},
@@ -65,134 +222,143 @@ local CP = {
   {"Mr Bus Summit",          Vector3.new( 638.770, 2203.497,  4207.933)},
 }
 
--- baris horizontal: [label kiri] [dropdown] [Go To]
-local row = Instance.new("Frame"); row.BackgroundTransparency=1; row.Size=UDim2.new(1,0,0,36); row.Parent=secCP
-local hl  = Instance.new("UIListLayout", row)
-hl.FillDirection=Enum.FillDirection.Horizontal; hl.Padding=UDim.new(0,10); hl.VerticalAlignment=Enum.VerticalAlignment.Center
+local selectedIndex
 
-local lab = Instance.new("TextLabel")
-lab.BackgroundTransparency=1; lab.Text="Checkpoint"; lab.Font=Enum.Font.GothamBlack; lab.TextSize=16; lab.TextColor3=Theme.text
-lab.Size=UDim2.new(0,130,1,0); lab.Parent=row
-
-local dd  = Instance.new("TextButton")
-dd.AutoButtonColor=false; dd.Text="Pilih checkpoint..."; dd.Font=Enum.Font.GothamSemibold; dd.TextSize=14; dd.TextColor3=Theme.text
-dd.BackgroundColor3=Color3.fromRGB(73,58,120); dd.Size=UDim2.new(1,-(130+130+20),1,0); dd.Parent=row
-corner(dd,8); stroke(dd,Theme.accA,1).Transparency=.45
-
-local go  = Instance.new("TextButton")
-go.AutoButtonColor=false; go.Text="Go To"; go.Font=Enum.Font.GothamSemibold; go.TextSize=14; go.TextColor3=Theme.text
-go.BackgroundColor3=Theme.accA; go.Size=UDim2.new(0,120,1,0); go.Parent=row
-corner(go,8); stroke(go,Theme.accB,1).Transparency=.35
-
--- dropdown panel (muncul di bawah dd, tetap di dalam secCP agar tidak kepotong)
-local panel = Instance.new("Frame")
-panel.Visible=false; panel.BackgroundColor3=Theme.card; panel.Size=UDim2.new(0, dd.AbsoluteSize.X, 0, 200)
-panel.Parent = secCP; panel.ZIndex=5; corner(panel,8); stroke(panel,Theme.accB,1).Transparency=.35
-
-local function placePanel()
-  local a = dd.AbsolutePosition; local r = panel.Parent.AbsolutePosition
-  panel.Position = UDim2.fromOffset(a.X-r.X, (a.Y-r.Y)+dd.AbsoluteSize.Y+6)
-  panel.Size     = UDim2.fromOffset(dd.AbsoluteSize.X, 200)
-end
-
-local scroll = Instance.new("ScrollingFrame", panel)
-scroll.BackgroundTransparency=1; scroll.Size=UDim2.fromScale(1,1); scroll.ScrollBarThickness=6; scroll.CanvasSize=UDim2.new(0,0,0,0); scroll.ZIndex=6
-local l = Instance.new("UIListLayout", scroll); l.Padding=UDim.new(0,6)
-l:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize=UDim2.new(0,0,0,l.AbsoluteContentSize.Y+8) end)
-
-local selectedIndex=nil
-for i,item in ipairs(CP) do
-  local b=Instance.new("TextButton"); b.AutoButtonColor=false; b.Text=item[1]; b.Font=Enum.Font.Gotham; b.TextSize=14; b.TextColor3=Theme.text
-  b.BackgroundColor3=Color3.fromRGB(90,74,140); b.Size=UDim2.new(1,-12,0,28); b.Parent=scroll; corner(b,8); b.ZIndex=7
+for i,entry in ipairs(checkpoints) do
+  local b=Instance.new("TextButton")
+  b.AutoButtonColor=false; b.Text=entry[1]; b.Font=Enum.Font.Gotham; b.TextSize=14; b.TextColor3=Theme.text
+  b.TextWrapped=false; b.TextTruncate=Enum.TextTruncate.AtEnd
+  b.BackgroundColor3=Color3.fromRGB(90,74,140); b.Size=UDim2.new(1,-12,0,32); b.Parent=listScroll; b.ZIndex=7
+  corner(b,8)
   b.MouseEnter:Connect(function() b.BackgroundColor3=Color3.fromRGB(110,90,170) end)
   b.MouseLeave:Connect(function() b.BackgroundColor3=Color3.fromRGB(90,74,140) end)
-  b.MouseButton1Click:Connect(function() selectedIndex=i; dd.Text=item[1]; panel.Visible=false end)
+  b.MouseButton1Click:Connect(function() selectedIndex=i; dd.Text=entry[1]; panel.Visible=false end)
 end
 
 dd.MouseButton1Click:Connect(function() placePanel(); panel.Visible=not panel.Visible end)
-game:GetService("UserInputService").InputBegan:Connect(function(input,gp)
+UIS.InputBegan:Connect(function(input,gp) -- klik di luar → tutup
   if gp or not panel.Visible or input.UserInputType~=Enum.UserInputType.MouseButton1 then return end
   local p=input.Position
   local inDD = p.X>=dd.AbsolutePosition.X and p.X<=dd.AbsolutePosition.X+dd.AbsoluteSize.X and p.Y>=dd.AbsolutePosition.Y and p.Y<=dd.AbsolutePosition.Y+dd.AbsoluteSize.Y
-  local inPN = p.X>=panel.AbsolutePosition.X and p.X<=panel.AbsolutePosition.X+panel.AbsoluteSize.X and p.Y>=panel.AbsolutePosition.Y and p.Y<=panel.AbsolutePosition.Y+panel.AbsoluteSize.Y
-  if not inDD and not inPN then panel.Visible=false end
+  local inPanel = p.X>=panel.AbsolutePosition.X and p.X<=panel.AbsolutePosition.X+panel.AbsoluteSize.X and p.Y>=panel.AbsolutePosition.Y and p.Y<=panel.AbsolutePosition.Y+panel.AbsoluteSize.Y
+  if not inDD and not inPanel then panel.Visible=false end
 end)
 
-local function HRP()
-  local plr=game:GetService("Players").LocalPlayer
-  local ch=plr.Character or plr.CharacterAdded:Wait()
-  return ch:FindFirstChild("HumanoidRootPart")
-end
-
-local function jumpDance(center)
-  local h=HRP(); if not h then return end
-  local dir=workspace.CurrentCamera and workspace.CurrentCamera.CFrame.LookVector or h.CFrame.LookVector
-  dir=Vector3.new(dir.X,0,dir.Z); if dir.Magnitude<.1 then dir=Vector3.new(1,0,0) end; dir=dir.Unit
-  for _=1,2 do
-    h.CFrame=CFrame.new(center + dir*6); task.wait(0.08)
-    h.CFrame=CFrame.new(center - dir*6); task.wait(0.08)
-  end
-  h.CFrame=CFrame.new(center)
-end
-
+-- GO TO
+local go = Instance.new("TextButton")
+go.AutoButtonColor=false; go.Text="Go To"; go.Font=Enum.Font.GothamSemibold; go.TextSize=14; go.TextColor3=Theme.text
+go.BackgroundColor3=Theme.accA; go.Size=UDim2.new(0,120,1,0); go.Parent=right
+corner(go,8); stroke(go,Theme.accB,1).Transparency=.3
 go.MouseButton1Click:Connect(function()
   if not selectedIndex then dd.Text="Pilih checkpoint dulu…"; return end
-  local pos=CP[selectedIndex][2]; local h=HRP(); if h then h.CFrame=CFrame.new(pos); jumpDance(pos) end
+  safeTP(checkpoints[selectedIndex][2])
 end)
 
-local hint=Instance.new("TextLabel"); hint.BackgroundTransparency=1; hint.TextWrapped=true
-hint.TextColor3=Theme.text2; hint.Font=Enum.Font.Gotham; hint.TextSize=13
-hint.Text="Pilih checkpoint di dropdown (kanan) lalu tekan 'Go To' untuk teleport."
-hint.Size=UDim2.new(1,0,0,32); hint.Parent=secCP
+-- catatan
+do
+  local note = Instance.new("TextLabel")
+  note.BackgroundTransparency=1; note.TextWrapped=true; note.TextColor3=Theme.text2; note.Font=Enum.Font.Gotham; note.TextSize=13
+  note.Text="Pilih checkpoint di dropdown (kanan) lalu tekan 'Go To' untuk teleport."
+  note.Size=UDim2.new(1,0,0,30); note.Parent=cpInner
+end
 
---------------------------------------------------------------------
--- ============ Sub-section: POSEIDON QUEST =================-------
---------------------------------------------------------------------
-local secPQ = Sec(mountRoot, "Poseidon Quest")
+----------------------------------------------------------------
+-- SUB: POSEIDON QUEST
+----------------------------------------------------------------
+local pq = newSub("Poseidon Quest")
 
--- tombol baris vertikal biar rapi
-local function makeBtn(text, parent, color)
-  local b=Instance.new("TextButton"); b.AutoButtonColor=false; b.Text=text
-  b.Font=Enum.Font.GothamSemibold; b.TextSize=14; b.TextColor3=Theme.text
-  b.BackgroundColor3=color or Theme.accA; b.Size=UDim2.new(0,240,0,34); b.Parent=parent
+local status = Instance.new("TextLabel")
+status.BackgroundTransparency=1; status.TextColor3=Theme.text2; status.Font=Enum.Font.Gotham; status.TextSize=13
+status.Text="Status: —"; status.Size=UDim2.new(1,0,0,22); status.Parent=pq
+
+local function setStatus(txt, good)
+  status.Text = "Status: "..txt
+  status.TextColor3 = good and Theme.good or Theme.text2
+end
+
+local function mkBtn(txt, cb)
+  local b=Instance.new("TextButton")
+  b.AutoButtonColor=false; b.Text=txt; b.Font=Enum.Font.GothamSemibold; b.TextSize=14; b.TextColor3=Theme.text
+  b.BackgroundColor3=Theme.accA; b.Size=UDim2.new(0.5,-6,0,34); b.Parent=pq
   corner(b,8); stroke(b,Theme.accB,1).Transparency=.35
+  b.MouseButton1Click:Connect(function() if cb then cb() end end)
   return b
 end
 
-local btnKey  = makeBtn("Teleport ke Key",  secPQ)
-local btnGate = makeBtn("Buka Gate",       secPQ)
-local btnRun  = makeBtn("Auto Run (Key→Gate)", secPQ)
+-- Lokasi otomatis berdasar nama (fleksibel ke update map)
+local function tpAndUse(nameKeys, hoverUp)
+  local inst = findOneByKeywords(unpack(nameKeys))
+  if not inst then setStatus("Objek "..table.concat(nameKeys,"+").." tidak ditemukan", false); return false end
+  local p = posFrom(inst); if not p then setStatus("Gagal ambil posisi", false); return false end
+  safeTP(p + Vector3.new(0, hoverUp or 3, 0))
+  task.wait(0.2)
+  fireAllPrompts(inst, 1.0)
+  return true
+end
 
-local status  = Instance.new("TextLabel"); status.BackgroundTransparency=1; status.TextWrapped=true
-status.TextColor3=Theme.text2; status.Font=Enum.Font.Gotham; status.TextSize=13
-status.Size=UDim2.new(1,0,0,32); status.Parent=secPQ
-local function setStatus(t) status.Text="Status: "..t end
+-- 1) Teleport & ambil Key
+mkBtn("Teleport ke Key", function()
+  setStatus("Menuju Key…", false)
+  if tpAndUse({"vault","key"}) then setStatus("Key diambil (jika syarat terpenuhi).", true) end
+end)
 
--- KOORDINAT (ganti jika update map)
-local KEY_POS  = Vector3.new(-123.0,  10.0, 456.0)   -- TODO: isi titik kunci yang benar
-local GATE_POS = Vector3.new( 789.0,  20.0,-321.0)   -- TODO: isi titik gate yang benar
-
-local function tp(v3) local h=HRP(); if h then h.CFrame=CFrame.new(v3) end end
-
-btnKey.MouseButton1Click:Connect(function() tp(KEY_POS);  setStatus("Teleport ke lokasi key.") end)
-
-btnGate.MouseButton1Click:Connect(function()
-  tp(GATE_POS)
-  -- contoh logic dari dump: VaultKey.Touched -> PoseidonGate.Enabled true
-  local ok=false
-  local key = workspace:FindFirstChild("VaultKey", true)
-  local gate= workspace:FindFirstChild("PoseidonGate", true)
-  if key and key:IsA("BasePart") and gate and gate:IsA("BasePart") then
-    key.Parent.Transparency = 1
-    key.Enabled  = false
-    gate.Enabled = true
-    ok=true
+-- 2) Buka Gate awal
+mkBtn("Buka Gate", function()
+  setStatus("Buka Gate…", false)
+  -- coba beberapa kemungkinan nama
+  if tpAndUse({"poseidon","gate"}) or tpAndUse({"gate","poseidon"}) then
+    setStatus("Gate dibuka (jika syarat terpenuhi).", true)
+  else
+    setStatus("Gate tidak ditemukan.", false)
   end
-  setStatus(ok and "Gate dibuka." or "Gate: objek tidak ditemukan (cek nama/posisi).")
 end)
 
-btnRun.MouseButton1Click:Connect(function()
-  tp(KEY_POS); task.wait(0.5)
-  tp(GATE_POS); task.wait(0.2)
-  btnGate:Activate()
+-- 3) Buka Final Gate
+mkBtn("Buka Final Gate", function()
+  setStatus("Buka Final Gate…", false)
+  if tpAndUse({"final","gate"}) or tpAndUse({"last","gate"}) or tpAndUse({"poseidon","final"}) then
+    setStatus("Final Gate dibuka (jika syarat terpenuhi).", true)
+  else
+    setStatus("Final Gate tidak ditemukan.", false)
+  end
 end)
+
+-- 4) Ambil Aura (interact ke helm)
+mkBtn("Ambil Aura", function()
+  setStatus("Menuju Helmet…", false)
+  if tpAndUse({"helmet"}) or tpAndUse({"helm","poseidon"}) then
+    setStatus("Aura/Helmet diambil (jika prompt muncul).", true)
+  else
+    setStatus("Helmet tidak ditemukan.", false)
+  end
+end)
+
+-- 5) AUTO RUN – urutan penuh
+do
+  local auto = Instance.new("TextButton")
+  auto.AutoButtonColor=false; auto.Text="Auto Quest (Key→Gate→Final→Aura)"
+  auto.Font=Enum.Font.GothamSemibold; auto.TextSize=14; auto.TextColor3=Theme.text
+  auto.BackgroundColor3=Theme.accA; auto.Size=UDim2.new(1,0,0,36); auto.Parent=pq
+  corner(auto,8); stroke(auto,Theme.accB,1).Transparency=.35
+
+  auto.MouseButton1Click:Connect(function()
+    setStatus("Auto: ambil Key…", false)
+    tpAndUse({"vault","key"})
+    task.wait(0.6)
+
+    setStatus("Auto: buka Gate…", false)
+    if not tpAndUse({"poseidon","gate"}) then tpAndUse({"gate","poseidon"}) end
+    task.wait(0.6)
+
+    setStatus("Auto: buka Final Gate…", false)
+    if not tpAndUse({"final","gate"}) then tpAndUse({"poseidon","final"}) end
+    task.wait(0.6)
+
+    setStatus("Auto: ambil Aura…", false)
+    if tpAndUse({"helmet"}) or tpAndUse({"helm","poseidon"}) then
+      setStatus("Selesai ✓", true)
+    else
+      setStatus("Helmet tidak ditemukan.", false)
+    end
+  end)
+end
