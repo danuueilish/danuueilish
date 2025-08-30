@@ -115,11 +115,23 @@ local function mkTabButton(text)
   return b
 end
 
-local Tabs = {}   -- {Name=..., Button=..., Page=Frame}
+local Tabs = {}
 local function createTab(name)
   local btn = mkTabButton(name)
-  local page=Instance.new("ScrollingFrame"); page.Visible=false; page.BackgroundTransparency=1; page.Size=UDim2.fromScale(1,1); page.ScrollBarThickness=6; page.CanvasSize=UDim2.new(0,0,0,0); page.Parent=content
-  local lay=Instance.new("UIListLayout",page); lay.Padding=UDim.new(0,10); lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() page.CanvasSize=UDim2.new(0,0,0,lay.AbsoluteContentSize.Y+10) end)
+  local page=Instance.new("ScrollingFrame")
+  page.Visible=false; page.BackgroundTransparency=1; page.Size=UDim2.fromScale(1,1)
+  page.ScrollBarThickness=6; page.CanvasSize=UDim2.new(0,0,0,0); page.Parent=content
+
+  -- ➜ kasih padding biar isi ga nempel ke tepi
+  local pagePad = Instance.new("UIPadding", page)
+  pagePad.PaddingLeft, pagePad.PaddingRight = UDim.new(0,8), UDim.new(0,8)
+  pagePad.PaddingTop, pagePad.PaddingBottom = UDim.new(0,8), UDim.new(0,8)
+
+  local lay=Instance.new("UIListLayout",page); lay.Padding=UDim.new(0,10)
+  lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    page.CanvasSize=UDim2.new(0,0,0,lay.AbsoluteContentSize.Y+10)
+  end)
+
   local t={Name=name, Button=btn, Page=page}; table.insert(Tabs,t)
   btn.MouseButton1Click:Connect(function()
     for _,tb in ipairs(Tabs) do tb.Page.Visible=false end
@@ -129,56 +141,77 @@ local function createTab(name)
 end
 
 local function section(parent, titleText)
-  local container=Instance.new("Frame"); container.BackgroundColor3=Theme.card; container.Size=UDim2.new(1,0,0,60); container.Parent=parent; corner(container,12); stroke(container,Theme.accA,1).Transparency=.6
-  local head=Instance.new("TextLabel"); head.BackgroundTransparency=1; head.Text="  "..titleText; head.Font=Enum.Font.GothamBlack; head.TextSize=18; head.TextColor3=Theme.text; head.TextXAlignment=Enum.TextXAlignment.Left; head.Size=UDim2.new(1,-8,0,28); head.Position=UDim2.fromOffset(8,6); head.Parent=container
-  local inner=Instance.new("Frame"); inner.BackgroundTransparency=1; inner.Size=UDim2.new(1,-16,0,0); inner.Position=UDim2.fromOffset(8,36); inner.Parent=container
+  local container=Instance.new("Frame")
+  container.BackgroundColor3=Theme.card
+  container.Size=UDim2.new(1,-4,0,60) -- shrink 4px
+  container.Position=UDim2.fromOffset(2,0)
+  container.Parent=parent
+  container.ClipsDescendants=false
+  corner(container,12)
+  stroke(container,Theme.accA,1).Transparency=.6
+
+  local head=Instance.new("TextLabel")
+  head.BackgroundTransparency=1
+  head.Text="  "..titleText
+  head.Font=Enum.Font.GothamBlack
+  head.TextSize=18
+  head.TextColor3=Theme.text
+  head.TextXAlignment=Enum.TextXAlignment.Left
+  head.Size=UDim2.new(1,-8,0,28)
+  head.Position=UDim2.fromOffset(8,6)
+  head.Parent=container
+
+  local inner=Instance.new("Frame")
+  inner.BackgroundTransparency=1
+  inner.Size=UDim2.new(1,-16,0,0)
+  inner.Position=UDim2.fromOffset(8,36)
+  inner.Parent=container
+
   local v=Instance.new("UIListLayout",inner); v.Padding=UDim.new(0,8)
-  local function resize() container.Size=UDim2.new(1,0,0, math.max(60, 40 + v.AbsoluteContentSize.Y)); inner.Size=UDim2.new(1,-16,0, v.AbsoluteContentSize.Y) end
-  v:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resize); task.defer(resize)
+  local function resize()
+    container.Size=UDim2.new(1,-4,0, math.max(60,40+v.AbsoluteContentSize.Y))
+    inner.Size=UDim2.new(1,-16,0,v.AbsoluteContentSize.Y)
+  end
+  v:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resize)
+  task.defer(resize)
+
   return inner
 end
 
--- ===== buat 5 tab
+-- ===== buat tabs
 local TabMenu     = createTab("Menu")
 local TabMount    = createTab("Mount")
 local TabMusic    = createTab("Music")
 local TabUtility  = createTab("Utility")
 local TabSettings = createTab("Settings")
 
--- default pilih Menu
 TabMenu.Page.Visible=true
 
--- ===== isi minimal — biar nggak kosong
 do
   local s = section(TabMenu.Page, "Welcome")
-  local t = Instance.new("TextLabel"); t.BackgroundTransparency=1; t.TextWrapped=true
-  t.Text = "Halo! Ini hub utama. Join Discord: discord.gg/yourlink (ganti nanti). Semua fitur akan muncul di tabs lain."
-  t.TextColor3=Theme.text2; t.Font=Enum.Font.Gotham; t.TextSize=14; t.Size=UDim2.new(1,0,0,34); t.Parent=s
+  local t = Instance.new("TextLabel")
+  t.BackgroundTransparency=1
+  t.TextWrapped=true
+  t.Text="Halo! Ini hub utama. Join Discord: discord.gg/yourlink (ganti nanti)."
+  t.TextColor3=Theme.text2
+  t.Font=Enum.Font.Gotham
+  t.TextSize=14
+  t.Size=UDim2.new(1,0,0,34)
+  t.Parent=s
 end
 
-do -- Mount: buat 5 section kosong (nanti diisi)
-  local names = {"Mount Atin","Mount Daun","Mount Sumbing","Mount Sibuatan","Mount Antarctica"}
-  for _,n in ipairs(names) do section(TabMount.Page, n) end
+do
+  local names={"Mount Atin","Mount Daun","Mount Sumbing","Mount Sibuatan","Mount Antarctica"}
+  for _,n in ipairs(names) do section(TabMount.Page,n) end
 end
 
-do -- Utility placeholders
-  section(TabUtility.Page,"Rejoin / Server Hop")
-end
+do section(TabUtility.Page,"Rejoin / Server Hop") end
 
--- ===== expose API supaya modul lain bisa nambah UI
 local API = {
-  RootGui = sg,
-  Window  = root,
-  Tabs = {
-    Menu     = TabMenu.Page,
-    Mount    = TabMount.Page,
-    Music    = TabMusic.Page,
-    Utility  = TabUtility.Page,
-    Settings = TabSettings.Page,
-  },
-  NewSection = section, -- fungsi helper untuk bikin section di tab mana pun
+  RootGui=sg,
+  Window=root,
+  Tabs={Menu=TabMenu.Page, Mount=TabMount.Page, Music=TabMusic.Page, Utility=TabUtility.Page, Settings=TabSettings.Page},
+  NewSection=section,
 }
-
--- simpan global biar modul bebas ambil
-_G.danuu_hub_ui = API
+_G.danuu_hub_ui=API
 return API
