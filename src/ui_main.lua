@@ -122,7 +122,7 @@ local function createTab(name)
   page.Visible=false; page.BackgroundTransparency=1; page.Size=UDim2.fromScale(1,1)
   page.ScrollBarThickness=6; page.CanvasSize=UDim2.new(0,0,0,0); page.Parent=content
 
-  -- ➜ kasih padding biar isi ga nempel ke tepi
+  -- padding konten
   local pagePad = Instance.new("UIPadding", page)
   pagePad.PaddingLeft, pagePad.PaddingRight = UDim.new(0,8), UDim.new(0,8)
   pagePad.PaddingTop, pagePad.PaddingBottom = UDim.new(0,8), UDim.new(0,8)
@@ -143,7 +143,7 @@ end
 local function section(parent, titleText)
   local container=Instance.new("Frame")
   container.BackgroundColor3=Theme.card
-  container.Size=UDim2.new(1,-4,0,60) -- shrink 4px
+  container.Size=UDim2.new(1,-4,0,60)  -- shrink 4px
   container.Position=UDim2.fromOffset(2,0)
   container.Parent=parent
   container.ClipsDescendants=false
@@ -187,6 +187,7 @@ local TabSettings = createTab("Settings")
 
 TabMenu.Page.Visible=true
 
+-- ===== isi default
 do
   local s = section(TabMenu.Page, "Welcome")
   local t = Instance.new("TextLabel")
@@ -200,18 +201,30 @@ do
   t.Parent=s
 end
 
+-- ===== Section untuk semua Mount + SIMPAN REFERENSI
+local MountSections = {}
 do
   local names={"Mount Atin","Mount Daun","Mount Sumbing","Mount Sibuatan","Mount Antarctica"}
-  for _,n in ipairs(names) do section(TabMount.Page,n) end
+  for _,n in ipairs(names) do
+    MountSections[n] = section(TabMount.Page, n)  -- simpan inner frame
+  end
 end
 
 do section(TabUtility.Page,"Rejoin / Server Hop") end
 
+-- ===== API untuk modul lain
 local API = {
   RootGui=sg,
   Window=root,
-  Tabs={Menu=TabMenu.Page, Mount=TabMount.Page, Music=TabMusic.Page, Utility=TabUtility.Page, Settings=TabSettings.Page},
+  Tabs={
+    Menu=TabMenu.Page,
+    Mount=TabMount.Page,
+    Music=TabMusic.Page,
+    Utility=TabUtility.Page,
+    Settings=TabSettings.Page
+  },
   NewSection=section,
+  MountSections = MountSections, -- <— penting: referensi section per-mount
 }
 _G.danuu_hub_ui=API
 return API
