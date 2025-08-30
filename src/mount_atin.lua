@@ -1,6 +1,6 @@
 -- src/mount_atin.lua
 -- Mount Atin: pilih checkpoint via dropdown + tombol Go To
-local UI = _G.danuu_hub_ui; if not UI or not UI.MountSections or not UI.MountSections then return end
+local UI = _G.danuu_hub_ui; if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
 local Theme = UI.Theme or {
   bg=Color3.fromRGB(24,20,40), card=Color3.fromRGB(44,36,72),
   text=Color3.fromRGB(235,230,255), text2=Color3.fromRGB(190,180,220),
