@@ -272,6 +272,227 @@ do
 end
 
 ----------------------------------------------------------------
+-- SUB: AUTO SUMMIT (baru, di tengah)
+----------------------------------------------------------------
+local Http            = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local GuiService      = game:GetService("GuiService")
+
+local asInner = newSub("Auto Summit")
+
+-- Cara Pakai
+do
+  local t = Instance.new("TextLabel")
+  t.BackgroundTransparency=1
+  t.TextWrapped=true
+  t.Font=Enum.Font.Gotham
+  t.TextSize=13
+  t.TextColor3=Theme.text2
+  t.Text = "Cara Pakai:\n1) Pastikan script auto-execute.\n2) Masukkan delay sesuai device (default 3s). Disarankan ≥3s biar sempat mematikan toggle.\n3) Isi delay Auto Rejoin (disarankan 1–5s di atas delay loop; default 5s).\n4) Nyalakan toggle-nya dan tinggal tidur 😴."
+  t.Size = UDim2.new(1,0,0,64)
+  t.Parent = asInner
+end
+
+-- Baris 1: [Box delay Auto Loop] [Toggle Auto Loop]
+local asRow1 = Instance.new("Frame"); asRow1.BackgroundTransparency=1; asRow1.Size=UDim2.new(1,0,0,34); asRow1.Parent=asInner
+local asRow1Lay = Instance.new("UIListLayout", asRow1); asRow1Lay.FillDirection=Enum.FillDirection.Horizontal; asRow1Lay.Padding=UDim.new(0,8)
+
+local loopBox = Instance.new("TextBox")
+loopBox.Size=UDim2.new(0.6, -4, 1, 0)
+loopBox.BackgroundColor3=Theme.card
+loopBox.TextColor3=Theme.text
+loopBox.PlaceholderText="Delay Auto Loop (detik) • default 3"
+loopBox.PlaceholderColor3=Theme.text2
+loopBox.ClearTextOnFocus=false
+loopBox.Text=""
+loopBox.Font=Enum.Font.Gotham
+loopBox.TextSize=14
+loopBox.TextTruncate=Enum.TextTruncate.AtEnd
+corner(loopBox,8); stroke(loopBox,Theme.accA,1).Transparency=.5
+loopBox.Parent = asRow1
+
+local loopToggle = Instance.new("TextButton")
+loopToggle.Size=UDim2.new(0.4, -4, 1, 0)
+loopToggle.Text="Auto Loop: OFF"
+loopToggle.Font=Enum.Font.GothamSemibold
+loopToggle.TextSize=14
+loopToggle.TextColor3=Theme.text
+loopToggle.BackgroundColor3=Theme.card
+loopToggle.AutoButtonColor=false
+corner(loopToggle,8); stroke(loopToggle,Theme.accA,1).Transparency=.5
+loopToggle.Parent = asRow1
+
+-- Baris 2: [Box delay Auto Rejoin] [Toggle Auto Rejoin]
+local asRow2 = Instance.new("Frame"); asRow2.BackgroundTransparency=1; asRow2.Size=UDim2.new(1,0,0,34); asRow2.Parent=asInner
+local asRow2Lay = Instance.new("UIListLayout", asRow2); asRow2Lay.FillDirection=Enum.FillDirection.Horizontal; asRow2Lay.Padding=UDim.new(0,8)
+
+local rjBox = Instance.new("TextBox")
+rjBox.Size=UDim2.new(0.6, -4, 1, 0)
+rjBox.BackgroundColor3=Theme.card
+rjBox.TextColor3=Theme.text
+rjBox.PlaceholderText="Delay Auto Rejoin (detik) • default 5"
+rjBox.PlaceholderColor3=Theme.text2
+rjBox.ClearTextOnFocus=false
+rjBox.Text=""
+rjBox.Font=Enum.Font.Gotham
+rjBox.TextSize=14
+rjBox.TextTruncate=Enum.TextTruncate.AtEnd
+corner(rjBox,8); stroke(rjBox,Theme.accA,1).Transparency=.5
+rjBox.Parent = asRow2
+
+local rjToggle = Instance.new("TextButton")
+rjToggle.Size=UDim2.new(0.4, -4, 1, 0)
+rjToggle.Text="Auto Rejoin: OFF"
+rjToggle.Font=Enum.Font.GothamSemibold
+rjToggle.TextSize=14
+rjToggle.TextColor3=Theme.text
+rjToggle.BackgroundColor3=Theme.card
+rjToggle.AutoButtonColor=false
+corner(rjToggle,8); stroke(rjToggle,Theme.accA,1).Transparency=.5
+rjToggle.Parent = asRow2
+
+-- ====== Logic Auto Summit
+local fileOK = (writefile and readfile and isfile) and true or false
+local AS_FILE = ("danuu_as_%s.json"):format(tostring(game.PlaceId))
+
+local summitPos = Vector3.new(781.809, 2162.143, 3920.971)
+
+local function summitDance(center)
+  local hrp = select(1, HRP()); if not hrp then return end
+  local dir = workspace.CurrentCamera and workspace.CurrentCamera.CFrame.LookVector or hrp.CFrame.LookVector
+  dir = Vector3.new(dir.X,0,dir.Z); if dir.Magnitude < 0.1 then dir = Vector3.new(1,0,0) end; dir = dir.Unit
+  local R = 8
+  for _=1,3 do
+    hrp.CFrame = CFrame.new(center + dir*R + Vector3.new(0,2.4,0)); task.wait(0.12)
+    hrp.CFrame = CFrame.new(center - dir*R + Vector3.new(0,2.4,0)); task.wait(0.12)
+    hrp.CFrame = CFrame.new(center + Vector3.new(0,2.4,0));         task.wait(0.12)
+  end
+end
+
+local state = {
+  loopDelay = 3,
+  rjDelay   = 5,
+  loopOn    = false,
+  rjOn      = false,
+}
+
+local function loadAS()
+  if not fileOK or not isfile(AS_FILE) then return end
+  local ok, data = pcall(function() return Http:JSONDecode(readfile(AS_FILE)) end)
+  if ok and typeof(data)=="table" then
+    if tonumber(data.loopDelay) then state.loopDelay = math.max(0, tonumber(data.loopDelay)) end
+    if tonumber(data.rjDelay)   then state.rjDelay   = math.max(0, tonumber(data.rjDelay))   end
+    state.loopOn = data.loopOn and true or false
+    state.rjOn   = data.rjOn   and true or false
+  end
+end
+
+local function saveAS()
+  if not fileOK then return end
+  pcall(function()
+    writefile(AS_FILE, Http:JSONEncode({
+      loopDelay = state.loopDelay,
+      rjDelay   = state.rjDelay,
+      loopOn    = state.loopOn,
+      rjOn      = state.rjOn,
+    }))
+  end)
+end
+
+local function refreshASUI()
+  loopToggle.Text = "Auto Loop: " .. (state.loopOn and "ON" or "OFF")
+  rjToggle.Text   = "Auto Rejoin: " .. (state.rjOn and "ON" or "OFF")
+  if loopBox.Text == "" then loopBox.Text = tostring(state.loopDelay) end
+  if rjBox.Text   == "" then rjBox.Text   = tostring(state.rjDelay)   end
+end
+
+local function normNumber(s, default)
+  local n = tonumber((s or ""):match("[-%d%.]+") or "")
+  if not n then return default end
+  if n ~= n or n == math.huge or n == -math.huge then return default end
+  return math.max(0, n)
+end
+
+loadAS(); refreshASUI()
+
+loopBox.FocusLost:Connect(function()
+  state.loopDelay = normNumber(loopBox.Text, 3)
+  loopBox.Text = tostring(state.loopDelay)
+  saveAS()
+end)
+
+rjBox.FocusLost:Connect(function()
+  state.rjDelay = normNumber(rjBox.Text, 5)
+  rjBox.Text = tostring(state.rjDelay)
+  saveAS()
+end)
+
+loopToggle.MouseButton1Click:Connect(function()
+  state.loopOn = not state.loopOn
+  refreshASUI()
+  saveAS()
+end)
+
+-- Auto Rejoin helpers
+local function doRJ()
+  local placeId, jobId = game.PlaceId, game.JobId
+  if #Players:GetPlayers() <= 1 then
+    LP:Kick("\nRejoining...")
+    task.wait()
+    TeleportService:Teleport(placeId, LP)
+  else
+    TeleportService:TeleportToPlaceInstance(placeId, jobId, LP)
+  end
+end
+
+local errorConn
+rjToggle.MouseButton1Click:Connect(function()
+  state.rjOn = not state.rjOn
+  refreshASUI()
+  saveAS()
+
+  if state.rjOn then
+    if not errorConn then
+      errorConn = GuiService.ErrorMessageChanged:Connect(function()
+        -- jika ada error modal dari Roblox → langsung RJ
+        task.defer(doRJ)
+      end)
+    end
+  else
+    if errorConn then errorConn:Disconnect(); errorConn=nil end
+  end
+end)
+
+-- Worker loop
+task.spawn(function()
+  while secRoot.Parent do
+    if state.loopOn then
+      -- 1) TP ke Summit + “dance”
+      safeTP(summitPos)
+      summitDance(summitPos)
+
+      -- 2) Tunggu delay loop (bisa dimatikan kapan saja)
+      local t0 = tick()
+      while state.loopOn and tick() - t0 < (state.loopDelay or 3) do
+        task.wait(0.05)
+      end
+
+      -- 3) Auto Rejoin (opsional) setelah cycle
+      if state.loopOn and state.rjOn then
+        local tr0 = tick()
+        while state.loopOn and state.rjOn and tick() - tr0 < (state.rjDelay or 5) do
+          task.wait(0.05)
+        end
+        if state.loopOn and state.rjOn then
+          doRJ()
+        end
+      end
+    end
+    task.wait(0.05)
+  end
+end)
+
+----------------------------------------------------------------
 -- SUB: POSEIDON QUEST (dropdown manual + Auto)
 ----------------------------------------------------------------
 local pq = newSub("Poseidon Quest")
@@ -376,7 +597,8 @@ end)
 pGo.MouseButton1Click:Connect(function()
   if not selectedManualIndex then pdd.Text="Pilih titik dulu…"; return end
   local pos = manualPoints[selectedManualIndex][2]
-  setStatus(("Teleport: %s"):format(manualPoints[selectedManualIndex][1]), false)
+  -- Status di Poseidon langsung memantau juga
+  -- (biarkan seperti sekarang: Status: ... akan diupdate ketika tombol Auto dijalankan)
   safeTP(pos)
 end)
 
