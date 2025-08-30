@@ -1,21 +1,16 @@
--- init.lua
--- Entry point script untuk danuu-hub
--- File ini akan require semua fitur yang ada di folder src
+-- danuu eilish • Hub Loader
+print("[danuu-hub] starting...")
 
-local features = {
-    "src/ui_main",
-    "src/auto_loop",
-    "src/auto_crash",
-    "src/sticky_notes",
-    "src/rejoin",
-    "src/antilag"
-}
+local base = "https://raw.githubusercontent.com/danuueilish/danuueilish/main/src/"
 
-for _, f in ipairs(features) do
-    local ok, mod = pcall(function() return require(f) end)
-    if not ok then
-        warn("[danuu-hub] Gagal load:", f, mod)
-    else
-        print("[danuu-hub] Loaded:", f)
-    end
-end
+-- UI framework utama
+local UI = loadstring(game:HttpGet(base.."ui_main.lua"))()
+
+-- Load fitur per file
+pcall(function() loadstring(game:HttpGet(base.."auto_loop.lua"))() end)
+pcall(function() loadstring(game:HttpGet(base.."auto_crash.lua"))() end)
+pcall(function() loadstring(game:HttpGet(base.."sticky_notes.lua"))() end)
+pcall(function() loadstring(game:HttpGet(base.."rejoin.lua"))() end)
+pcall(function() loadstring(game:HttpGet(base.."antilag.lua"))() end)
+
+print("[danuu-hub] semua modul sudah di-load ✓")
