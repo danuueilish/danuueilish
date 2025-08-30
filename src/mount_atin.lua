@@ -5,7 +5,7 @@ local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
 local sec = UI.MountSections["Mount Atin"]
 
--- Theme fallback (pakai warna GUI utama)
+-- Theme fallback
 local Theme = {
   bg   = Color3.fromRGB(24,20,40),
   card = Color3.fromRGB(44,36,72),
@@ -61,19 +61,22 @@ local list = {
   {"Mr Bus Summit",          Vector3.new( 638.770, 2203.497,  4207.933)},
 }
 
--- ===== Baris kontrol: [Label kiri] [Dropdown + Go To (kanan)]
+-- ===== Baris kontrol: [Label kiri]  [Dropdown + Go To kanan]
 local row = Instance.new("Frame")
 row.BackgroundTransparency = 1
-row.Size = UDim2.new(1,0,0,36)
+row.Size = UDim2.new(1,0,0,40)
 row.Parent = sec
+row.ClipsDescendants = false
 
 local uiH = Instance.new("UIListLayout", row)
 uiH.FillDirection = Enum.FillDirection.Horizontal
 uiH.Padding = UDim.new(0,8)
 uiH.VerticalAlignment = Enum.VerticalAlignment.Center
+uiH.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
 -- Label kiri
 local label = Instance.new("TextLabel")
+label.LayoutOrder = 1
 label.BackgroundTransparency = 1
 label.Text = "Checkpoint"
 label.Font = Enum.Font.GothamBlack
@@ -82,10 +85,11 @@ label.TextColor3 = Theme.text
 label.Size = UDim2.new(0,120,1,0)
 label.Parent = row
 
--- Container kanan (dropdown + tombol)
+-- Container kanan
 local right = Instance.new("Frame")
+right.LayoutOrder = 2
 right.BackgroundTransparency = 1
-right.Size = UDim2.new(1,-(120+8),1,0)
+right.Size = UDim2.new(1,-(120+8),1,0) -- sisa ruang setelah label
 right.Parent = row
 
 local rightLayout = Instance.new("UIListLayout", right)
@@ -94,32 +98,53 @@ rightLayout.Padding = UDim.new(0,8)
 rightLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 rightLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
--- ===== Dropdown (tampil seperti tombol)
+-- Tombol Go To (fixed width)
+local go = Instance.new("TextButton")
+go.AutoButtonColor = false
+go.Text = "Go To"
+go.Font = Enum.Font.GothamSemibold
+go.TextSize = 14
+go.TextColor3 = Theme.text
+go.BackgroundColor3 = Theme.accA
+go.Size = UDim2.new(0,120,1,0)
+go.Parent = right
+corner(go,8); stroke(go,Theme.accB,1).Transparency=.3
+
+-- Dropdown (isi sisa ruang di kiri tombol)
 local dd = Instance.new("TextButton")
 dd.AutoButtonColor = false
 dd.Text = "Pilih checkpoint..."
 dd.Font = Enum.Font.GothamSemibold
 dd.TextSize = 14
+dd.TextXAlignment = Enum.TextXAlignment.Left
 dd.TextColor3 = Theme.text
-dd.BackgroundColor3 = Color3.fromRGB(90, 74, 140) -- aksen biar “hidup”
-dd.Size = UDim2.new(0,260,1,0)
+dd.BackgroundColor3 = Color3.fromRGB(90, 74, 140) -- aksen
+dd.Size = UDim2.new(1,-(120+8),1,0) -- sisa setelah tombol
 dd.Parent = right
 corner(dd,8); stroke(dd,Theme.accA,1).Transparency=.35
 
--- Panel list (muncul di bawah dropdown)
+-- Panel list (parent = Window supaya nggak kepotong & tetap di dalam window)
+local root = UI.Window or row
 local panel = Instance.new("Frame")
 panel.Visible = false
 panel.BackgroundColor3 = Theme.card
-panel.Size = UDim2.new(0,260,0,180)
-panel.Parent = sec
-panel.ZIndex = 5
+panel.Size = UDim2.new(0, math.max(220, dd.AbsoluteSize.X), 0, 200)
+panel.Parent = root
+panel.ZIndex = 50
 corner(panel,8); stroke(panel,Theme.accB,1).Transparency=.35
 panel.ClipsDescendants = true
 
+-- Posisi panel (clamp biar tidak keluar window)
 local function placePanel()
-  local abs = dd.AbsolutePosition
-  local rootAbs = panel.Parent.AbsolutePosition
-  panel.Position = UDim2.fromOffset(abs.X - rootAbs.X, (abs.Y - rootAbs.Y) + dd.AbsoluteSize.Y + 6)
+  local ddPos, ddSize = dd.AbsolutePosition, dd.AbsoluteSize
+  local winPos, winSize = root.AbsolutePosition, root.AbsoluteSize
+  local x = ddPos.X - winPos.X
+  local y = (ddPos.Y - winPos.Y) + ddSize.Y + 6
+  -- clamp kanan & bawah
+  x = math.clamp(x, 8, winSize.X - panel.AbsoluteSize.X - 8)
+  y = math.clamp(y, 8, winSize.Y - panel.AbsoluteSize.Y - 8)
+  panel.Position = UDim2.fromOffset(x, y)
+  panel.Size = UDim2.fromOffset(ddSize.X, 200)
 end
 
 local listScroll = Instance.new("ScrollingFrame", panel)
@@ -127,7 +152,7 @@ listScroll.BackgroundTransparency = 1
 listScroll.Size = UDim2.fromScale(1,1)
 listScroll.ScrollBarThickness = 6
 listScroll.CanvasSize = UDim2.new(0,0,0,0)
-listScroll.ZIndex = 6
+listScroll.ZIndex = 51
 
 local l = Instance.new("UIListLayout", listScroll)
 l.Padding = UDim.new(0,6)
@@ -143,18 +168,14 @@ for i,entry in ipairs(list) do
   b.Font = Enum.Font.Gotham
   b.TextSize = 14
   b.TextColor3 = Theme.text
+  b.TextXAlignment = Enum.TextXAlignment.Left
   b.BackgroundColor3 = Color3.fromRGB(90, 74, 140)
   b.Size = UDim2.new(1,-12,0,28)
   b.Parent = listScroll
-  corner(b,8)
-  b.ZIndex = 7
+  corner(b,8); b.ZIndex = 52
 
-  b.MouseEnter:Connect(function()
-    b.BackgroundColor3 = Color3.fromRGB(110, 90, 170)
-  end)
-  b.MouseLeave:Connect(function()
-    b.BackgroundColor3 = Color3.fromRGB(90, 74, 140)
-  end)
+  b.MouseEnter:Connect(function() b.BackgroundColor3 = Color3.fromRGB(110, 90, 170) end)
+  b.MouseLeave:Connect(function() b.BackgroundColor3 = Color3.fromRGB(90, 74, 140) end)
 
   b.MouseButton1Click:Connect(function()
     selectedIndex = i
@@ -168,39 +189,31 @@ dd.MouseButton1Click:Connect(function()
   panel.Visible = not panel.Visible
 end)
 
--- Tutup panel jika klik di luar
+-- Tutup panel kalau klik di luar
 game:GetService("UserInputService").InputBegan:Connect(function(input,gp)
-  if gp then return end
-  if panel.Visible and input.UserInputType == Enum.UserInputType.MouseButton1 then
+  if gp or not panel.Visible then return end
+  if input.UserInputType == Enum.UserInputType.MouseButton1 then
     local pos = input.Position
-    local inDD = (pos.X >= dd.AbsolutePosition.X and pos.X <= dd.AbsolutePosition.X+dd.AbsoluteSize.X
-      and pos.Y >= dd.AbsolutePosition.Y and pos.Y <= dd.AbsolutePosition.Y+dd.AbsoluteSize.Y)
-    local inPanel = (pos.X >= panel.AbsolutePosition.X and pos.X <= panel.AbsolutePosition.X+panel.AbsoluteSize.X
-      and pos.Y >= panel.AbsolutePosition.Y and pos.Y <= panel.AbsolutePosition.Y+panel.AbsoluteSize.Y)
-    if not inDD and not inPanel then panel.Visible=false end
+    local function inside(gui)
+      return pos.X >= gui.AbsolutePosition.X
+         and pos.X <= gui.AbsolutePosition.X + gui.AbsoluteSize.X
+         and pos.Y >= gui.AbsolutePosition.Y
+         and pos.Y <= gui.AbsolutePosition.Y + gui.AbsoluteSize.Y
+    end
+    if not inside(dd) and not inside(panel) then
+      panel.Visible = false
+    end
   end
 end)
 
--- ===== Tombol Go To
-local go = Instance.new("TextButton")
-go.AutoButtonColor = false
-go.Text = "Go To"
-go.Font = Enum.Font.GothamSemibold
-go.TextSize = 14
-go.TextColor3 = Theme.text
-go.BackgroundColor3 = Theme.accA
-go.Size = UDim2.new(0,120,1,0)
-go.Parent = right
-corner(go,8); stroke(go,Theme.accB,1).Transparency=.3
-
+-- Teleport helpers
 local function HRP()
   local plr = game:GetService("Players").LocalPlayer
   local ch = plr.Character or plr.CharacterAdded:Wait()
   return ch:FindFirstChild("HumanoidRootPart")
 end
 
--- Nudge pendek untuk menghindari stuck permukaan
-local function jumpDance(center)
+local function nudge(center)
   local h = HRP(); if not h then return end
   local dir = workspace.CurrentCamera and workspace.CurrentCamera.CFrame.LookVector or h.CFrame.LookVector
   dir = Vector3.new(dir.X,0,dir.Z); if dir.Magnitude < .1 then dir = Vector3.new(1,0,0) end; dir = dir.Unit
@@ -212,15 +225,12 @@ local function jumpDance(center)
 end
 
 go.MouseButton1Click:Connect(function()
-  if not selectedIndex then
-    dd.Text = "Pilih checkpoint dulu…"
-    return
-  end
+  if not selectedIndex then dd.Text = "Pilih checkpoint dulu…"; return end
   local pos = list[selectedIndex][2]
   local h = HRP()
   if h then
     h.CFrame = CFrame.new(pos)
-    jumpDance(pos)
+    nudge(pos)
   end
 end)
 
