@@ -131,18 +131,18 @@ end
 ----------------------------------------------------------------
 local cpInner = newSub("Checkpoint")
 
--- Row: [label kiri] [dropdown + GoTo kanan]
+-- Row: [dropdown + GoTo] (label "Checkpoint" DIHAPUS sesuai minta)
 local row = Instance.new("Frame"); row.BackgroundTransparency=1; row.Size=UDim2.new(1,0,0,36); row.Parent=cpInner
-local h = Instance.new("UIListLayout", row); h.FillDirection=Enum.FillDirection.Horizontal; h.Padding=UDim.new(0,8); h.VerticalAlignment=Enum.VerticalAlignment.Center
+local h = Instance.new("UIListLayout", row)
+h.FillDirection=Enum.FillDirection.Horizontal; h.Padding=UDim.new(0,8); h.VerticalAlignment=Enum.VerticalAlignment.Center
 
-local left = Instance.new("TextLabel")
-left.BackgroundTransparency=1; left.Text="Checkpoint"; left.Font=Enum.Font.GothamBlack; left.TextSize=16
-left.TextColor3=Theme.text; left.Size=UDim2.new(0,120,1,0); left.Parent=row
-
+-- container kanan full width
 local right = Instance.new("Frame")
-right.BackgroundTransparency=1; right.Size=UDim2.new(1,-(120+8),1,0); right.Parent=row
-local hr = Instance.new("UIListLayout", right); hr.FillDirection=Enum.FillDirection.Horizontal; hr.Padding=UDim.new(0,8)
-hr.HorizontalAlignment = Enum.HorizontalAlignment.Right; hr.VerticalAlignment = Enum.VerticalAlignment.Center
+right.BackgroundTransparency=1; right.Size=UDim2.new(1,0,1,0); right.Parent=row
+local hr = Instance.new("UIListLayout", right)
+hr.FillDirection=Enum.FillDirection.Horizontal; hr.Padding=UDim.new(0,8)
+hr.HorizontalAlignment = Enum.HorizontalAlignment.Left
+hr.VerticalAlignment = Enum.VerticalAlignment.Center
 
 -- Dropdown button
 local dd = Instance.new("TextButton")
@@ -168,9 +168,24 @@ l:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
   listScroll.CanvasSize=UDim2.new(0,0,0,l.AbsoluteContentSize.Y+8)
 end)
 
+-- Posisi dropdown list DI-CLAMP supaya tidak keluar kotak section
 local function placePanel()
-  local abs = dd.AbsolutePosition; local rootAbs = panel.Parent.AbsolutePosition
-  panel.Position = UDim2.fromOffset(abs.X - rootAbs.X, (abs.Y - rootAbs.Y) + dd.AbsoluteSize.Y + 6)
+  local rootAbs = secRoot.AbsolutePosition
+  local rootSize = secRoot.AbsoluteSize
+  local abs = dd.AbsolutePosition
+  local ddSize = dd.AbsoluteSize
+  local margin = 8
+  local width = 260
+
+  local x = abs.X - rootAbs.X
+  local y = abs.Y - rootAbs.Y + ddSize.Y + 6
+
+  if x < margin then x = margin end
+  if x + width + margin > rootSize.X then x = rootSize.X - width - margin end
+
+  local maxH = math.min(224, rootSize.Y - y - margin)           -- tinggi aman
+  panel.Size = UDim2.new(0, width, 0, math.max(120, maxH))
+  panel.Position = UDim2.fromOffset(x, y)
 end
 
 -- Data CP
@@ -257,7 +272,7 @@ do
 end
 
 ----------------------------------------------------------------
--- SUB: POSEIDON QUEST (5 tombol)
+-- SUB: POSEIDON QUEST (5 tombol) — TIDAK DIUBAH
 ----------------------------------------------------------------
 local pq = newSub("Poseidon Quest")
 
