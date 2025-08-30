@@ -1,19 +1,14 @@
 -- src/mount_atin.lua
--- Mount Atin • Checkpoint picker (label kiri, dropdown + Go To kanan, bersihin sisa UI lama)
+-- Mount Atin • Checkpoint picker (label kiri; dropdown + Go To kanan)
+
+if _G.DE_ATIN_INIT then return end
+_G.DE_ATIN_INIT = true
 
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
-local sec  = UI.MountSections["Mount Atin"]    -- inner frame section "Mount Atin"
-local root = UI.Window or sec                   -- untuk panel dropdown biar gak kepotong
 
--- Bersihkan sisa elemen lama kalau ada
-for _,child in ipairs(sec:GetChildren()) do
-  if child:IsA("Frame") and (child.Name == "AtinRow" or child.Name == "AtinDropdownPanel") then
-    child:Destroy()
-  elseif child:IsA("TextLabel") and (child.Text == "Checkpoint") then
-    child:Destroy()
-  end
-end
+local sec  = UI.MountSections["Mount Atin"] -- inner Frame dari section "Mount Atin"
+local root = UI.Window or sec               -- parent aman untuk panel dropdown
 
 local Theme = {
   bg   = Color3.fromRGB(24,20,40),
@@ -23,11 +18,21 @@ local Theme = {
   accA = Color3.fromRGB(125,84,255),
   accB = Color3.fromRGB(215,55,255)
 }
-
 local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p; return c end
 local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.55; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 
--- data titik
+-- --- Bersihkan sisa label "Checkpoint" lama di section (anak & cucu) ---
+local function purgeOldCheckpointLabels()
+  for _,d in ipairs(sec:GetDescendants()) do
+    if d:IsA("TextLabel") and d.Text == "Checkpoint" then
+      d:Destroy()
+    end
+  end
+end
+purgeOldCheckpointLabels()
+task.defer(purgeOldCheckpointLabels) -- kalau ada skrip lama nambah belakangan, sapu lagi
+
+-- --- Data titik ---
 local points = {
   {"Basecamp",               Vector3.new(  16.501,   54.470, -1082.821)},
   {"Summit Leaderboard",     Vector3.new(  31.554,   53.176, -1030.635)},
@@ -70,13 +75,12 @@ local points = {
   {"Mr Bus Summit",          Vector3.new( 638.770, 2203.497,  4207.933)},
 }
 
--- ===== baris kontrol
+-- --- Baris kontrol (label kiri; dropdown + Go To kanan) ---
 local row = Instance.new("Frame")
 row.Name = "AtinRow"
 row.BackgroundTransparency = 1
 row.Size = UDim2.new(1,0,0,40)
 row.Parent = sec
-row.ClipsDescendants = false
 
 local lay = Instance.new("UIListLayout", row)
 lay.FillDirection = Enum.FillDirection.Horizontal
@@ -84,7 +88,6 @@ lay.Padding = UDim.new(0,8)
 lay.VerticalAlignment = Enum.VerticalAlignment.Center
 lay.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
--- label kiri (FIX disini)
 local label = Instance.new("TextLabel")
 label.BackgroundTransparency = 1
 label.Text = "Checkpoint"
@@ -94,19 +97,17 @@ label.TextColor3 = Theme.text
 label.Size = UDim2.new(0,120,1,0)
 label.Parent = row
 
--- container kanan (dropdown + tombol)
 local right = Instance.new("Frame")
 right.BackgroundTransparency = 1
 right.Size = UDim2.new(1,-(120+8),1,0)
 right.Parent = row
-
 local rlay = Instance.new("UIListLayout", right)
 rlay.FillDirection = Enum.FillDirection.Horizontal
 rlay.Padding = UDim.new(0,8)
 rlay.HorizontalAlignment = Enum.HorizontalAlignment.Right
 rlay.VerticalAlignment = Enum.VerticalAlignment.Center
 
--- DROPDOWN (dibuat dulu, jadi di kiri dalam container kanan)
+-- dropdown (di kiri dalam container kanan)
 local dd = Instance.new("TextButton")
 dd.AutoButtonColor = false
 dd.Text = "Pilih checkpoint..."
@@ -115,11 +116,11 @@ dd.Font = Enum.Font.GothamSemibold
 dd.TextSize = 14
 dd.TextColor3 = Theme.text
 dd.BackgroundColor3 = Theme.card
-dd.Size = UDim2.new(1,-(120+8),1,0) -- sisa ruang selain tombol
+dd.Size = UDim2.new(1,-(120+8),1,0)
 dd.Parent = right
 corner(dd,8); stroke(dd,Theme.accA,1).Transparency = .45
 
--- TOMBOL GO TO (kanan)
+-- Go To (paling kanan)
 local btnGo = Instance.new("TextButton")
 btnGo.AutoButtonColor = false
 btnGo.Text = "Go To"
@@ -131,7 +132,7 @@ btnGo.Size = UDim2.new(0,120,1,0)
 btnGo.Parent = right
 corner(btnGo,8); stroke(btnGo,Theme.accB,1).Transparency = .35
 
--- panel dropdown (parent = window agar tidak kepotong)
+-- Panel dropdown: parent ke window agar tidak kepotong
 local panel = Instance.new("Frame")
 panel.Name = "AtinDropdownPanel"
 panel.Visible = false
@@ -193,17 +194,20 @@ dd.MouseButton1Click:Connect(function()
   panel.Visible = not panel.Visible
 end)
 
--- tutup panel bila klik di luar
+-- tutup panel kalau klik di luar
 game:GetService("UserInputService").InputBegan:Connect(function(input,gp)
   if gp or not panel.Visible then return end
   if input.UserInputType == Enum.UserInputType.MouseButton1 then
     local p = input.Position
-    local function inside(g) return p.X>=g.AbsolutePosition.X and p.X<=g.AbsolutePosition.X+g.AbsoluteSize.X and p.Y>=g.AbsolutePosition.Y and p.Y<=g.AbsolutePosition.Y+g.AbsoluteSize.Y end
+    local function inside(g)
+      return p.X>=g.AbsolutePosition.X and p.X<=g.AbsolutePosition.X+g.AbsoluteSize.X
+         and p.Y>=g.AbsolutePosition.Y and p.Y<=g.AbsolutePosition.Y+g.AbsoluteSize.Y
+    end
     if not inside(dd) and not inside(panel) then panel.Visible = false end
   end
 end)
 
--- teleport
+-- Teleport util
 local function HRP()
   local plr = game:GetService("Players").LocalPlayer
   local ch = plr.Character or plr.CharacterAdded:Wait()
