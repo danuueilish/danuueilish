@@ -1,10 +1,19 @@
 -- src/mount_atin.lua
--- Mount Atin • Checkpoint picker (label kiri, dropdown + Go To kanan)
+-- Mount Atin • Checkpoint picker (label kiri, dropdown + Go To kanan, bersihin sisa UI lama)
 
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
-local sec  = UI.MountSections["Mount Atin"]
-local root = UI.Window or sec
+local sec  = UI.MountSections["Mount Atin"]    -- inner frame section "Mount Atin"
+local root = UI.Window or sec                   -- untuk panel dropdown biar gak kepotong
+
+-- Bersihkan sisa elemen lama kalau ada
+for _,child in ipairs(sec:GetChildren()) do
+  if child:IsA("Frame") and (child.Name == "AtinRow" or child.Name == "AtinDropdownPanel") then
+    child:Destroy()
+  elseif child:IsA("TextLabel") and (child.Text == "Checkpoint") then
+    child:Destroy()
+  end
+end
 
 local Theme = {
   bg   = Color3.fromRGB(24,20,40),
@@ -63,6 +72,7 @@ local points = {
 
 -- ===== baris kontrol
 local row = Instance.new("Frame")
+row.Name = "AtinRow"
 row.BackgroundTransparency = 1
 row.Size = UDim2.new(1,0,0,40)
 row.Parent = sec
@@ -74,7 +84,7 @@ lay.Padding = UDim.new(0,8)
 lay.VerticalAlignment = Enum.VerticalAlignment.Center
 lay.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
--- label kiri
+-- label kiri (FIX disini)
 local label = Instance.new("TextLabel")
 label.BackgroundTransparency = 1
 label.Text = "Checkpoint"
@@ -84,7 +94,7 @@ label.TextColor3 = Theme.text
 label.Size = UDim2.new(0,120,1,0)
 label.Parent = row
 
--- container kanan
+-- container kanan (dropdown + tombol)
 local right = Instance.new("Frame")
 right.BackgroundTransparency = 1
 right.Size = UDim2.new(1,-(120+8),1,0)
@@ -96,7 +106,7 @@ rlay.Padding = UDim.new(0,8)
 rlay.HorizontalAlignment = Enum.HorizontalAlignment.Right
 rlay.VerticalAlignment = Enum.VerticalAlignment.Center
 
--- DROPDOWN (dibuat duluan biar posisinya di kiri)
+-- DROPDOWN (dibuat dulu, jadi di kiri dalam container kanan)
 local dd = Instance.new("TextButton")
 dd.AutoButtonColor = false
 dd.Text = "Pilih checkpoint..."
@@ -109,7 +119,7 @@ dd.Size = UDim2.new(1,-(120+8),1,0) -- sisa ruang selain tombol
 dd.Parent = right
 corner(dd,8); stroke(dd,Theme.accA,1).Transparency = .45
 
--- TOMBOL GO TO (menempel di kanan)
+-- TOMBOL GO TO (kanan)
 local btnGo = Instance.new("TextButton")
 btnGo.AutoButtonColor = false
 btnGo.Text = "Go To"
@@ -121,8 +131,9 @@ btnGo.Size = UDim2.new(0,120,1,0)
 btnGo.Parent = right
 corner(btnGo,8); stroke(btnGo,Theme.accB,1).Transparency = .35
 
--- panel dropdown (parent = window agar tak kepotong)
+-- panel dropdown (parent = window agar tidak kepotong)
 local panel = Instance.new("Frame")
+panel.Name = "AtinDropdownPanel"
 panel.Visible = false
 panel.BackgroundColor3 = Theme.card
 panel.Size = UDim2.fromOffset(260,200)
@@ -216,7 +227,7 @@ btnGo.MouseButton1Click:Connect(function()
   if h then h.CFrame = CFrame.new(pos); nudge(pos) end
 end)
 
--- keterangan
+-- catatan
 local note = Instance.new("TextLabel")
 note.BackgroundTransparency = 1
 note.TextWrapped = true
