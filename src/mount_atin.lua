@@ -272,7 +272,7 @@ do
 end
 
 ----------------------------------------------------------------
--- SUB: POSEIDON QUEST — dirombak (Dropdown Manual TP + Auto)
+-- SUB: POSEIDON QUEST (dropdown manual + Auto)
 ----------------------------------------------------------------
 local pq = newSub("Poseidon Quest")
 
@@ -281,39 +281,48 @@ status.BackgroundTransparency=1; status.TextColor3=Theme.text2; status.Font=Enum
 status.Text="Status: —"; status.Size=UDim2.new(1,0,0,22); status.Parent=pq
 local function setStatus(txt, good) status.Text = "Status: "..txt; status.TextColor3 = good and Theme.good or Theme.text2 end
 
--- ROW: [Dropdown manual] [Go To]
+-- ROW: [Dropdown manual] [Go To]  <<<<< FIX: tombol Go To tidak kepotong
 local prow = Instance.new("Frame"); prow.BackgroundTransparency=1; prow.Size=UDim2.new(1,0,0,36); prow.Parent=pq
 local pl = Instance.new("UIListLayout", prow)
 pl.FillDirection=Enum.FillDirection.Horizontal; pl.Padding=UDim.new(0,8); pl.VerticalAlignment=Enum.VerticalAlignment.Center
 
-local pRight = Instance.new("Frame"); pRight.BackgroundTransparency=1; pRight.Size=UDim2.new(1,0,1,0); pRight.Parent=prow
+local pRight = Instance.new("Frame")
+pRight.BackgroundTransparency=1
+pRight.Size = UDim2.new(1, -(120+8), 1, 0) -- sisakan ruang buat tombol
+pRight.Parent = prow
+
 local pLay   = Instance.new("UIListLayout", pRight)
 pLay.FillDirection=Enum.FillDirection.Horizontal; pLay.Padding=UDim.new(0,8)
 pLay.HorizontalAlignment = Enum.HorizontalAlignment.Left
 pLay.VerticalAlignment   = Enum.VerticalAlignment.Center
 
--- Dropdown Manual TP
 local pdd = Instance.new("TextButton")
 pdd.AutoButtonColor=false; pdd.Text="Pilih titik manual (Poseidon)…"
 pdd.Font=Enum.Font.GothamSemibold; pdd.TextSize=14; pdd.TextColor3=Theme.text
 pdd.TextWrapped=false; pdd.TextTruncate=Enum.TextTruncate.AtEnd
-pdd.BackgroundColor3=Theme.card; pdd.Size=UDim2.new(0,320,1,0); pdd.Parent=pRight
+pdd.BackgroundColor3=Theme.card; pdd.Size=UDim2.new(1,0,1,0); pdd.Parent=pRight
 corner(pdd,8); stroke(pdd,Theme.accA,1).Transparency=.45
 
--- Panel dropdown manual (pakai secRoot agar tidak kepotong)
+local pGo = Instance.new("TextButton")
+pGo.AutoButtonColor=false; pGo.Text="Go To"
+pGo.Font=Enum.Font.GothamSemibold; pGo.TextSize=14; pGo.TextColor3=Theme.text
+pGo.BackgroundColor3=Theme.accA; pGo.Size=UDim2.new(0,120,1,0); pGo.Parent=prow
+corner(pGo,8); stroke(pGo,Theme.accB,1).Transparency=.3
+
+-- Panel list manual (clamped)
 local pPanel = Instance.new("Frame")
 pPanel.Visible=false; pPanel.BackgroundColor3=Theme.card
-pPanel.Size=UDim2.new(0,320,0,220); pPanel.Parent=secRoot
+pPanel.Size=UDim2.new(0,260,0,184); pPanel.Parent=secRoot
 pPanel.ClipsDescendants=true; pPanel.ZIndex=5
 corner(pPanel,8); stroke(pPanel,Theme.accB,1).Transparency=.35
 
-local pScroll = Instance.new("ScrollingFrame", pPanel)
-pScroll.BackgroundTransparency=1; pScroll.Size=UDim2.fromScale(1,1)
-pScroll.ScrollBarThickness=6; pScroll.CanvasSize=UDim2.new(0,0,0,0)
-pScroll.ZIndex=6; pScroll.ClipsDescendants=true
-local pList = Instance.new("UIListLayout", pScroll); pList.Padding=UDim.new(0,6)
-pList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-  pScroll.CanvasSize=UDim2.new(0,0,0,pList.AbsoluteContentSize.Y+8)
+local pList = Instance.new("ScrollingFrame", pPanel)
+pList.BackgroundTransparency=1; pList.Size=UDim2.fromScale(1,1)
+pList.ScrollBarThickness=6; pList.CanvasSize=UDim2.new(0,0,0,0)
+pList.ZIndex=6; pList.ClipsDescendants=true
+local pUIL = Instance.new("UIListLayout", pList); pUIL.Padding=UDim.new(0,6)
+pUIL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+  pList.CanvasSize=UDim2.new(0,0,0,pUIL.AbsoluteContentSize.Y+8)
 end)
 
 local function placePPanel()
@@ -321,22 +330,17 @@ local function placePPanel()
   local rootSize = secRoot.AbsoluteSize
   local abs = pdd.AbsolutePosition
   local ddSize = pdd.AbsoluteSize
-  local margin = 8
-  local width = 320
-
+  local margin, width = 8, 260
   local x = abs.X - rootAbs.X
   local y = abs.Y - rootAbs.Y + ddSize.Y + 6
-
   if x < margin then x = margin end
   if x + width + margin > rootSize.X then x = rootSize.X - width - margin end
-
-  local maxH = math.min(260, rootSize.Y - y - margin)
-  pPanel.Size = UDim2.new(0, width, 0, math.max(140, maxH))
+  local maxH = math.min(224, rootSize.Y - y - margin)
+  pPanel.Size = UDim2.new(0, width, 0, math.max(120, maxH))
   pPanel.Position = UDim2.fromOffset(x, y)
 end
 
--- Titik manual Poseidon
-local poseidonPoints = {
+local manualPoints = {
   {"Note 1", Vector3.new(  40.992,  42.024, -1013.635)},
   {"Note 2", Vector3.new( -10.237,  53.219, -1014.791)},
   {"Note 3", Vector3.new(  43.372,  61.132,  -935.566)},
@@ -348,19 +352,16 @@ local poseidonPoints = {
   {"Helmet", Vector3.new(-296.419,-116.904, -1403.167)},
 }
 
-local pSelected
-for i,item in ipairs(poseidonPoints) do
+local selectedManualIndex
+for i,entry in ipairs(manualPoints) do
   local b=Instance.new("TextButton")
-  b.AutoButtonColor=false; b.Text=item[1]; b.Font=Enum.Font.Gotham; b.TextSize=14; b.TextColor3=Theme.text
+  b.AutoButtonColor=false; b.Text=entry[1]; b.Font=Enum.Font.Gotham; b.TextSize=14; b.TextColor3=Theme.text
   b.TextWrapped=false; b.TextTruncate=Enum.TextTruncate.AtEnd
-  b.BackgroundColor3=Color3.fromRGB(90,74,140); b.Size=UDim2.new(1,-12,0,32); b.Parent=pScroll; b.ZIndex=7
+  b.BackgroundColor3=Color3.fromRGB(90,74,140); b.Size=UDim2.new(1,-12,0,32); b.Parent=pList; b.ZIndex=7
   corner(b,8)
   b.MouseEnter:Connect(function() b.BackgroundColor3=Color3.fromRGB(110,90,170) end)
   b.MouseLeave:Connect(function() b.BackgroundColor3=Color3.fromRGB(90,74,140) end)
-  b.MouseButton1Click:Connect(function()
-    pSelected=i; pdd.Text=item[1]; pPanel.Visible=false
-    setStatus("Manual TP siap: "..item[1], false)
-  end)
+  b.MouseButton1Click:Connect(function() selectedManualIndex=i; pdd.Text=entry[1]; pPanel.Visible=false end)
 end
 
 pdd.MouseButton1Click:Connect(function() placePPanel(); pPanel.Visible=not pPanel.Visible end)
@@ -372,25 +373,21 @@ UIS.InputBegan:Connect(function(input,gp)
   if not inDD and not inPanel then pPanel.Visible=false end
 end)
 
--- GO TO manual (poseidon)
-local pGo = Instance.new("TextButton")
-pGo.AutoButtonColor=false; pGo.Text="Go To"
-pGo.Font=Enum.Font.GothamSemibold; pGo.TextSize=14; pGo.TextColor3=Theme.text
-pGo.BackgroundColor3=Theme.accA; pGo.Size=UDim2.new(0,120,1,0); pGo.Parent=pRight
-corner(pGo,8); stroke(pGo,Theme.accB,1).Transparency=.3
 pGo.MouseButton1Click:Connect(function()
-  if not pSelected then pdd.Text="Pilih titik manual dulu…"; return end
-  safeTP(poseidonPoints[pSelected][2])
-  setStatus("Teleport: "..poseidonPoints[pSelected][1], true)
+  if not selectedManualIndex then pdd.Text="Pilih titik dulu…"; return end
+  local pos = manualPoints[selectedManualIndex][2]
+  setStatus(("Teleport: %s"):format(manualPoints[selectedManualIndex][1]), false)
+  safeTP(pos)
 end)
 
--- AUTO QUEST (fungsi lama dipertahankan)
+-- Tombol Auto Quest (tetap)
 local function mkBtn(txt, cb)
   local b=Instance.new("TextButton")
   b.AutoButtonColor=false; b.Text=txt; b.Font=Enum.Font.GothamSemibold; b.TextSize=14; b.TextColor3=Theme.text
-  b.BackgroundColor3=Theme.accA; b.Size=UDim2.new(1,0,0,32); b.Parent=pq
+  b.BackgroundColor3=Theme.accA; b.Size=UDim2.new(1,0,0,36); b.Parent=pq
   corner(b,8); stroke(b,Theme.accB,1).Transparency=.35
   b.MouseButton1Click:Connect(function() task.spawn(cb) end)
+  return b
 end
 
 mkBtn("Auto Quest Poseidon", function()
