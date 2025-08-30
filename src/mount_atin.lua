@@ -1,5 +1,5 @@
 -- src/mount_atin.lua
--- Mount Atin : Checkpoint + Auto Summit + Poseidon Quest (rapi + aman + collapsible)
+-- Mount Atin : Collapsible card + Checkpoint + Auto Summit + Poseidon Quest
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
 
@@ -10,6 +10,9 @@ local GuiSvc  = game:GetService("GuiService")
 local Http    = game:GetService("HttpService")
 local LP      = Players.LocalPlayer
 
+----------------------------------------------------------------
+-- THEME + SMALL UI HELPERS
+----------------------------------------------------------------
 local Theme = {
   bg    = Color3.fromRGB(24,20,40),
   card  = Color3.fromRGB(44,36,72),
@@ -20,12 +23,11 @@ local Theme = {
   good  = Color3.fromRGB(106,212,123),
   bad   = Color3.fromRGB(255,95,95),
 }
-
-local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p; return c end
+local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 10); c.Parent=p; return c end
 local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.6; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 
 ----------------------------------------------------------------
--- HELPERS
+-- HELPERS (gameplay)
 ----------------------------------------------------------------
 local function HRP()
   local ch = LP.Character or LP.CharacterAdded:Wait()
@@ -87,83 +89,95 @@ local function posFrom(inst)
 end
 
 ----------------------------------------------------------------
--- COLLAPSIBLE: gunakan frame section asli "Mount Atin"
+-- COLLAPSIBLE ROOT CARD (1 kartu saja; awal tertutup)
 ----------------------------------------------------------------
-local secRoot = UI.MountSections["Mount Atin"]
-local COLLAPSED_H = 72 -- match card gunung lain
+local mountListRoot = UI.MountSections -- parent daftar kartu gunung (sudah ada dari hub)
+local secRoot       = UI.MountSections["Mount Atin"]  -- container khusus area ini (dipakai untuk clamp panel)
 
--- Bersihkan isi lama jika ada (hanya child yang bukan UIListLayout/Stroke/Corner)
-for _,ch in ipairs(secRoot:GetChildren()) do
-  if not (ch:IsA("UIListLayout") or ch:IsA("UIStroke") or ch:IsA("UICorner")) then ch:Destroy() end
-end
-secRoot.BackgroundColor3 = Theme.card
-corner(secRoot,12); if not secRoot:FindFirstChildOfClass("UIStroke") then stroke(secRoot,Theme.accA,1).Transparency=.5 end
+-- Buat kartu “Mount Atin” (tutup; tinggi setara kartu lain)
+local card = Instance.new("Frame")
+card.Name = "MountAtinCard"
+card.BackgroundColor3 = Theme.card
+card.Size = UDim2.new(1,-0,0,78)           -- tinggi kartu list default ~78
+card.Parent = secRoot
+corner(card,12); stroke(card,Theme.accA,1).Transparency=.5
 
--- Header tombol
+-- Header (klik untuk expand/collapse)
 local header = Instance.new("TextButton")
 header.AutoButtonColor = false
 header.BackgroundTransparency = 1
-header.Text = "  ▶  Mount Atin"
-header.Font = Enum.Font.GothamBlack
-header.TextSize = 18
-header.TextColor3 = Theme.text
-header.TextXAlignment = Enum.TextXAlignment.Left
-header.Size = UDim2.new(1,-8,0,28)
-header.Position = UDim2.fromOffset(8,6)
-header.Parent = secRoot
+header.Size = UDim2.new(1, -16, 0, 40)
+header.Position = UDim2.fromOffset(8, 10)
+header.Text = ""
+header.Parent = card
 
--- Holder konten (disembunyikan saat collapsed)
-local contentHolder = Instance.new("Frame")
-contentHolder.BackgroundTransparency = 1
-contentHolder.Visible = false
-contentHolder.Size = UDim2.new(1,-16,0,0)
-contentHolder.Position = UDim2.fromOffset(8,36)
-contentHolder.Parent = secRoot
+local arrow = Instance.new("TextLabel")
+arrow.BackgroundTransparency = 1
+arrow.Text = "▸"
+arrow.Font = Enum.Font.GothamBold
+arrow.TextSize = 20
+arrow.TextColor3 = Theme.text
+arrow.Size = UDim2.fromOffset(20,20)
+arrow.Position = UDim2.fromOffset(6,10)
+arrow.Parent = header
 
-local contentList = Instance.new("UIListLayout", contentHolder)
+local title = Instance.new("TextLabel")
+title.BackgroundTransparency = 1
+title.Text = "Mount Atin"
+title.Font = Enum.Font.GothamBlack
+title.TextSize = 22
+title.TextColor3 = Theme.text
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Size = UDim2.new(1,-40,1,0)
+title.Position = UDim2.fromOffset(30,0)
+title.Parent = header
+
+-- Content (disini seluruh fitur; auto-resize saat expand)
+local content = Instance.new("Frame")
+content.Name = "Content"
+content.BackgroundTransparency = 1
+content.Visible = false
+content.Size = UDim2.new(1,-16,0,0)
+content.Position = UDim2.fromOffset(8, 56)
+content.Parent = card
+
+local contentList = Instance.new("UIListLayout", content)
 contentList.Padding = UDim.new(0,10)
-
-local function resizeSection()
-  if contentHolder.Visible then
-    secRoot.Size = UDim2.new(1,-16,0, math.max(COLLAPSED_H, 40 + contentList.AbsoluteContentSize.Y))
-    contentHolder.Size = UDim2.new(1,-16,0, contentList.AbsoluteContentSize.Y)
-  else
-    secRoot.Size = UDim2.new(1,-16,0, COLLAPSED_H)
-    contentHolder.Size = UDim2.new(1,-16,0, 0)
-  end
+local function refreshCardSize()
+  local h = content.Visible and (56 + contentList.AbsoluteContentSize.Y + 10) or 78
+  card.Size = UDim2.new(1,0,0, math.max(78, h))
 end
-contentList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeSection)
-
-local expanded = false
+contentList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshCardSize)
+local expanded=false
 local function setExpanded(on)
   expanded = on and true or false
-  contentHolder.Visible = expanded
-  header.Text = expanded and "  ▼  Mount Atin" or "  ▶  Mount Atin"
-  resizeSection()
+  arrow.Text = expanded and "▾" or "▸"
+  content.Visible = expanded
+  refreshCardSize()
 end
 setExpanded(false)
 header.MouseButton1Click:Connect(function() setExpanded(not expanded) end)
 
 ----------------------------------------------------------------
--- SUBSECTION FACTORY (parent = contentHolder)
+-- REUSABLE SUB-SECTION BUILDER (dipakai di dalam `content`)
 ----------------------------------------------------------------
 local function newSub(titleText)
   local box = Instance.new("Frame")
   box.BackgroundColor3 = Theme.card
   box.Size = UDim2.new(1,0,0,60)
-  box.Parent = contentHolder
+  box.Parent = content
   corner(box,10); stroke(box,Theme.accA,1).Transparency=.5
 
-  local title = Instance.new("TextLabel")
-  title.BackgroundTransparency = 1
-  title.Text = "  "..titleText
-  title.Font = Enum.Font.GothamBlack
-  title.TextSize = 18
-  title.TextColor3 = Theme.text
-  title.TextXAlignment = Enum.TextXAlignment.Left
-  title.Size = UDim2.new(1,-8,0,28)
-  title.Position = UDim2.fromOffset(8,6)
-  title.Parent = box
+  local title2 = Instance.new("TextLabel")
+  title2.BackgroundTransparency = 1
+  title2.Text = "  "..titleText
+  title2.Font = Enum.Font.GothamBlack
+  title2.TextSize = 18
+  title2.TextColor3 = Theme.text
+  title2.TextXAlignment = Enum.TextXAlignment.Left
+  title2.Size = UDim2.new(1,-8,0,28)
+  title2.Position = UDim2.fromOffset(8,6)
+  title2.Parent = box
 
   local inner = Instance.new("Frame")
   inner.BackgroundTransparency = 1
@@ -177,72 +191,73 @@ local function newSub(titleText)
   local function resize()
     box.Size = UDim2.new(1,0,0, math.max(60, 40 + lay.AbsoluteContentSize.Y))
     inner.Size = UDim2.new(1,-16,0, lay.AbsoluteContentSize.Y)
-    resizeSection()
+    refreshCardSize()
   end
   lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resize)
   task.defer(resize)
 
-  return inner
+  return inner, box
 end
 
 ----------------------------------------------------------------
--- SUB: CHECKPOINT
+-- SECTION 1: CHECKPOINT
 ----------------------------------------------------------------
 local cpInner = newSub("Checkpoint")
 
--- Row: [Dropdown] [Go To]
+-- Row: [dropdown] [Go To]
 local row = Instance.new("Frame"); row.BackgroundTransparency=1; row.Size=UDim2.new(1,0,0,36); row.Parent=cpInner
-local h = Instance.new("UIListLayout", row)
-h.FillDirection=Enum.FillDirection.Horizontal; h.Padding=UDim.new(0,8); h.VerticalAlignment=Enum.VerticalAlignment.Center
+local rowLay = Instance.new("UIListLayout", row)
+rowLay.FillDirection=Enum.FillDirection.Horizontal; rowLay.Padding=UDim.new(0,8); rowLay.VerticalAlignment=Enum.VerticalAlignment.Center
 
 local right = Instance.new("Frame")
-right.BackgroundTransparency=1; right.Size=UDim2.new(1,0,1,0); right.Parent=row
+right.BackgroundTransparency=1; right.Size=UDim2.new(1, -(120+8), 1, 0); right.Parent=row
 local hr = Instance.new("UIListLayout", right)
 hr.FillDirection=Enum.FillDirection.Horizontal; hr.Padding=UDim.new(0,8)
 hr.HorizontalAlignment = Enum.HorizontalAlignment.Left
 hr.VerticalAlignment = Enum.VerticalAlignment.Center
 
--- Dropdown button
 local dd = Instance.new("TextButton")
-dd.AutoButtonColor=false; dd.Text="Basecamp"
+dd.AutoButtonColor=false; dd.Text="Pilih checkpoint..."
 dd.Font=Enum.Font.GothamSemibold; dd.TextSize=14; dd.TextColor3=Theme.text
 dd.TextWrapped=false; dd.TextTruncate=Enum.TextTruncate.AtEnd
-dd.BackgroundColor3=Theme.card; dd.Size=UDim2.new(1,-(120+8),1,0); dd.Parent=right
+dd.BackgroundColor3=Theme.card; dd.Size=UDim2.new(1,0,1,0); dd.Parent=right
 corner(dd,8); stroke(dd,Theme.accA,1).Transparency=.45
 
--- Panel list (letakkan di secRoot agar tidak kepotong)
+local go = Instance.new("TextButton")
+go.AutoButtonColor=false; go.Text="Go To"
+go.Font=Enum.Font.GothamSemibold; go.TextSize=14; go.TextColor3=Theme.text
+go.BackgroundColor3=Theme.accA; go.Size=UDim2.new(0,120,1,0); go.Parent=row
+corner(go,8); stroke(go,Theme.accB,1).Transparency=.3
+
+-- Panel list (dipasang ke `card` agar tidak kepotong)
 local panel = Instance.new("Frame")
 panel.Visible=false; panel.BackgroundColor3=Theme.card
-panel.Size=UDim2.new(0,260,0,184); panel.Parent=secRoot
-panel.ClipsDescendants=true; panel.ZIndex=5
+panel.Size=UDim2.new(0,260,0,184); panel.Parent=card
+panel.ClipsDescendants=true; panel.ZIndex=50
 corner(panel,8); stroke(panel,Theme.accB,1).Transparency=.35
 
 local listScroll = Instance.new("ScrollingFrame", panel)
 listScroll.BackgroundTransparency=1; listScroll.Size=UDim2.fromScale(1,1)
 listScroll.ScrollBarThickness=6; listScroll.CanvasSize=UDim2.new(0,0,0,0)
-listScroll.ZIndex=6; listScroll.ClipsDescendants=true
+listScroll.ZIndex=51; listScroll.ClipsDescendants=true
 local l = Instance.new("UIListLayout", listScroll); l.Padding=UDim.new(0,6)
 l:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
   listScroll.CanvasSize=UDim2.new(0,0,0,l.AbsoluteContentSize.Y+8)
 end)
 
-local function placePanel()
-  local rootAbs = secRoot.AbsolutePosition
-  local rootSize = secRoot.AbsoluteSize
-  local abs = dd.AbsolutePosition
-  local ddSize = dd.AbsoluteSize
-  local margin = 8
-  local width = 260
-
+local function clampDropdown(anchorBtn, outPanel)
+  local rootAbs = card.AbsolutePosition
+  local rootSize = card.AbsoluteSize
+  local abs = anchorBtn.AbsolutePosition
+  local ddSize = anchorBtn.AbsoluteSize
+  local margin, width = 8, 260
   local x = abs.X - rootAbs.X
   local y = abs.Y - rootAbs.Y + ddSize.Y + 6
-
   if x < margin then x = margin end
   if x + width + margin > rootSize.X then x = rootSize.X - width - margin end
-
   local maxH = math.min(224, rootSize.Y - y - margin)
-  panel.Size = UDim2.new(0, width, 0, math.max(120, maxH))
-  panel.Position = UDim2.fromOffset(x, y)
+  outPanel.Size = UDim2.new(0, width, 0, math.max(120, maxH))
+  outPanel.Position = UDim2.fromOffset(x, y)
 end
 
 -- Data CP
@@ -293,14 +308,14 @@ for i,entry in ipairs(checkpoints) do
   local b=Instance.new("TextButton")
   b.AutoButtonColor=false; b.Text=entry[1]; b.Font=Enum.Font.Gotham; b.TextSize=14; b.TextColor3=Theme.text
   b.TextWrapped=false; b.TextTruncate=Enum.TextTruncate.AtEnd
-  b.BackgroundColor3=Color3.fromRGB(90,74,140); b.Size=UDim2.new(1,-12,0,32); b.Parent=listScroll; b.ZIndex=7
+  b.BackgroundColor3=Color3.fromRGB(90,74,140); b.Size=UDim2.new(1,-12,0,32); b.Parent=listScroll; b.ZIndex=52
   corner(b,8)
   b.MouseEnter:Connect(function() b.BackgroundColor3=Color3.fromRGB(110,90,170) end)
   b.MouseLeave:Connect(function() b.BackgroundColor3=Color3.fromRGB(90,74,140) end)
   b.MouseButton1Click:Connect(function() selectedIndex=i; dd.Text=entry[1]; panel.Visible=false end)
 end
 
-dd.MouseButton1Click:Connect(function() placePanel(); panel.Visible=not panel.Visible end)
+dd.MouseButton1Click:Connect(function() clampDropdown(dd,panel); panel.Visible=not panel.Visible end)
 UIS.InputBegan:Connect(function(input,gp)
   if gp or not panel.Visible or input.UserInputType~=Enum.UserInputType.MouseButton1 then return end
   local p=input.Position
@@ -309,11 +324,6 @@ UIS.InputBegan:Connect(function(input,gp)
   if not inDD and not inPanel then panel.Visible=false end
 end)
 
-local go = Instance.new("TextButton")
-go.AutoButtonColor=false; go.Text="Go To"
-go.Font=Enum.Font.GothamSemibold; go.TextSize=14; go.TextColor3=Theme.text
-go.BackgroundColor3=Theme.accA; go.Size=UDim2.new(0,120,1,0); go.Parent=right
-corner(go,8); stroke(go,Theme.accB,1).Transparency=.3
 go.MouseButton1Click:Connect(function()
   if not selectedIndex then dd.Text="Pilih checkpoint dulu…"; return end
   safeTP(checkpoints[selectedIndex][2])
@@ -327,84 +337,76 @@ do
 end
 
 ----------------------------------------------------------------
--- SUB: AUTO SUMMIT
+-- SECTION 2: AUTO SUMMIT (di tengah)
 ----------------------------------------------------------------
 local asInner = newSub("Auto Summit")
-
 do
-  local help = Instance.new("TextLabel")
-  help.BackgroundTransparency=1; help.TextWrapped=true; help.TextColor3=Theme.text2
-  help.Font=Enum.Font.Gotham; help.TextSize=13
-  help.Text = "Cara Pakai:\n1) Pastikan auto-execute aktif.\n2) Delay Auto Loop (default 3s).\n3) Delay Auto Rejoin (default 5s, disarankan > loop).\n4) Toggle sesuai kebutuhan."
-  help.Size = UDim2.new(1,0,0,58)
-  help.Parent = asInner
+  local how = Instance.new("TextLabel")
+  how.BackgroundTransparency=1; how.TextWrapped=true; how.TextColor3=Theme.text2; how.Font=Enum.Font.Gotham; how.TextSize=13
+  how.Text = "Cara Pakai:\n1) Pastikan auto-execute aktif.\n2) Masukkan delay sesuai device (default 3s). Disaranin ≥3s.\n3) Masukkan delay Auto Rejoin (default 5s) — idealnya > delay loop.\n4) ON kan sesuai kebutuhan dan tinggal AFK."
+  how.Size=UDim2.new(1,0,0,64); how.Parent=asInner
 end
 
--- Row Loop
-local loopRow = Instance.new("Frame"); loopRow.BackgroundTransparency=1; loopRow.Size=UDim2.new(1,0,0,36); loopRow.Parent=asInner
-local lhl = Instance.new("UIListLayout", loopRow)
-lhl.FillDirection=Enum.FillDirection.Horizontal; lhl.Padding=UDim.new(0,8); lhl.VerticalAlignment=Enum.VerticalAlignment.Center
-
-local loopBox = Instance.new("TextBox")
-loopBox.BackgroundColor3=Theme.card; loopBox.TextColor3=Theme.text
-loopBox.PlaceholderText="Delay Loop (s) default 3"; loopBox.PlaceholderColor3=Theme.text2
-loopBox.ClearTextOnFocus=false; loopBox.Font=Enum.Font.Gotham; loopBox.TextSize=14; loopBox.Text=""
-loopBox.Size=UDim2.new(1,-(120+8),1,0); loopBox.Parent=loopRow
-corner(loopBox,8); stroke(loopBox,Theme.accA,1).Transparency=.5
-
-local loopToggle = Instance.new("TextButton")
-loopToggle.AutoButtonColor=false; loopToggle.Text="Auto Loop: OFF"
-loopToggle.Font=Enum.Font.GothamSemibold; loopToggle.TextSize=14; loopToggle.TextColor3=Theme.text
-loopToggle.BackgroundColor3=Theme.accA; loopToggle.Size=UDim2.new(0,120,1,0); loopToggle.Parent=loopRow
-corner(loopToggle,8); stroke(loopToggle,Theme.accB,1).Transparency=.3
-
--- Row Rejoin
-local rjRow = Instance.new("Frame"); rjRow.BackgroundTransparency=1; rjRow.Size=UDim2.new(1,0,0,36); rjRow.Parent=asInner
-local rhl = Instance.new("UIListLayout", rjRow)
-rhl.FillDirection=Enum.FillDirection.Horizontal; rhl.Padding=UDim.new(0,8); rhl.VerticalAlignment=Enum.VerticalAlignment.Center
-
-local rjBox = Instance.new("TextBox")
-rjBox.BackgroundColor3=Theme.card; rjBox.TextColor3=Theme.text
-rjBox.PlaceholderText="Delay Auto Rejoin (s) default 5"; rjBox.PlaceholderColor3=Theme.text2
-rjBox.ClearTextOnFocus=false; rjBox.Font=Enum.Font.Gotham; rjBox.TextSize=14; rjBox.Text=""
-rjBox.Size=UDim2.new(1,-(120+8),1,0); rjBox.Parent=rjRow
-corner(rjBox,8); stroke(rjBox,Theme.accA,1).Transparency=.5
-
-local rjToggle = Instance.new("TextButton")
-rjToggle.AutoButtonColor=false; rjToggle.Text="Auto Rejoin: OFF"
-rjToggle.Font=Enum.Font.GothamSemibold; rjToggle.TextSize=14; rjToggle.TextColor3=Theme.text
-rjToggle.BackgroundColor3=Theme.accA; rjToggle.Size=UDim2.new(0,120,1,0); rjToggle.Parent=rjRow
-corner(rjToggle,8); stroke(rjToggle,Theme.accB,1).Transparency=.3
-
--- persist (per place)
+-- persistence
 local fileOK = (writefile and readfile and isfile) and true or false
-local STATE_FILE = ("danuu_auto_summit_%s.json"):format(tostring(game.PlaceId))
-local function saveState(data) if not fileOK then return end; pcall(function() writefile(STATE_FILE, Http:JSONEncode(data)) end) end
+local KEY = ("danuu_as_%s.json"):format(tostring(game.PlaceId))
+local function saveState(tbl) if not fileOK then return end; pcall(function() writefile(KEY, Http:JSONEncode(tbl)) end) end
 local function loadState()
-  if not fileOK or not isfile(STATE_FILE) then return {} end
-  local ok, data = pcall(function() return Http:JSONDecode(readfile(STATE_FILE)) end)
+  if not fileOK or not isfile(KEY) then return {} end
+  local ok,data = pcall(function() return Http:JSONDecode(readfile(KEY)) end)
   return ok and data or {}
 end
+local st = loadState()
+local autoLoop  = st.autoLoop  ~= false and (st.autoLoop or false)
+local autoRJ    = st.autoRJ    or false
+local delayLoop = tonumber(st.delayLoop) or 3
+local delayRJ   = tonumber(st.delayRJ)   or 5
 
-local state = loadState()
-local summitPos = Vector3.new(781.809, 2162.143, 3920.971)
-local autoLoop = state.autoLoop or false
-local autoRJ   = state.autoRJ   or false
-local loopDelay = tonumber(state.loopDelay) or 3
-local rjDelay   = tonumber(state.rjDelay)   or 5
-loopBox.Text = tostring(loopDelay)
-rjBox.Text   = tostring(rjDelay)
-local function refreshToggles()
-  loopToggle.Text = "Auto Loop: "..(autoLoop and "ON" or "OFF")
-  rjToggle.Text   = "Auto Rejoin: "..(autoRJ and "ON" or "OFF")
-end
-refreshToggles()
+local function persist() saveState({autoLoop=autoLoop, autoRJ=autoRJ, delayLoop=delayLoop, delayRJ=delayRJ}) end
 
+-- Row 1: [Box delay loop] [toggle loop]
+local r1 = Instance.new("Frame"); r1.BackgroundTransparency=1; r1.Size=UDim2.new(1,0,0,36); r1.Parent=asInner
+local r1l=Instance.new("UIListLayout", r1); r1l.FillDirection=Enum.FillDirection.Horizontal; r1l.Padding=UDim.new(0,8)
+
+local boxLoop = Instance.new("TextBox")
+boxLoop.Size=UDim2.new(1, -(140+8), 1, 0); boxLoop.BackgroundColor3=Theme.card; boxLoop.ClearTextOnFocus=false
+boxLoop.TextColor3=Theme.text; boxLoop.Font=Enum.Font.Gotham; boxLoop.TextSize=14; boxLoop.Text = tostring(delayLoop)
+boxLoop.PlaceholderText="Delay Auto Loop (detik)"
+corner(boxLoop,8); stroke(boxLoop,Theme.accA,1).Transparency=.45; boxLoop.Parent=r1
+
+local btnLoop = Instance.new("TextButton")
+btnLoop.Size=UDim2.new(0,140,1,0); btnLoop.AutoButtonColor=false; btnLoop.BackgroundColor3=Theme.accA
+btnLoop.Font=Enum.Font.GothamSemibold; btnLoop.TextSize=14; btnLoop.TextColor3=Theme.text; btnLoop.Parent=r1
+corner(btnLoop,8); stroke(btnLoop,Theme.accB,1).Transparency=.35
+local function refreshLoopBtn() btnLoop.Text = "Auto Loop: "..(autoLoop and "ON" or "OFF") end
+refreshLoopBtn()
+
+-- Row 2: [Box delay RJ] [toggle RJ]
+local r2 = Instance.new("Frame"); r2.BackgroundTransparency=1; r2.Size=UDim2.new(1,0,0,36); r2.Parent=asInner
+local r2l=Instance.new("UIListLayout", r2); r2l.FillDirection=Enum.FillDirection.Horizontal; r2l.Padding=UDim.new(0,8)
+
+local boxRJ = Instance.new("TextBox")
+boxRJ.Size=UDim2.new(1, -(140+8), 1, 0); boxRJ.BackgroundColor3=Theme.card; boxRJ.ClearTextOnFocus=false
+boxRJ.TextColor3=Theme.text; boxRJ.Font=Enum.Font.Gotham; boxRJ.TextSize=14; boxRJ.Text = tostring(delayRJ)
+boxRJ.PlaceholderText="Delay Auto Rejoin (detik)"
+corner(boxRJ,8); stroke(boxRJ,Theme.accA,1).Transparency=.45; boxRJ.Parent=r2
+
+local btnRJ = Instance.new("TextButton")
+btnRJ.Size=UDim2.new(0,140,1,0); btnRJ.AutoButtonColor=false; btnRJ.BackgroundColor3=Theme.accA
+btnRJ.Font=Enum.Font.GothamSemibold; btnRJ.TextSize=14; btnRJ.TextColor3=Theme.text; btnRJ.Parent=r2
+corner(btnRJ,8); stroke(btnRJ,Theme.accB,1).Transparency=.35
+local function refreshRJBtn() btnRJ.Text = "Auto Rejoin: "..(autoRJ and "ON" or "OFF") end
+refreshRJBtn()
+
+-- Logic Auto Loop (TP ke summit + "dance" 3x @ 8 stud)
+local SUMMIT = Vector3.new(781.809, 2162.143, 3920.971)
 local function checkpointDance(center)
-  local hrp = HRP(); if not hrp then return end
+  local hrp = (HRP())
+  if not hrp then return end
   local cam = workspace.CurrentCamera
-  local dir = (cam and cam.CFrame.LookVector or hrp.CFrame.LookVector)
-  dir = Vector3.new(dir.X,0,dir.Z); if dir.Magnitude<0.1 then dir = Vector3.new(1,0,0) end
+  local dir = cam and cam.CFrame.LookVector or hrp.CFrame.LookVector
+  dir = Vector3.new(dir.X,0,dir.Z)
+  if dir.Magnitude < 0.1 then dir = Vector3.new(1,0,0) end
   dir = dir.Unit
   local R = 8
   for _=1,3 do
@@ -414,51 +416,51 @@ local function checkpointDance(center)
   end
 end
 
-loopToggle.MouseButton1Click:Connect(function()
-  autoLoop = not autoLoop
-  loopDelay = tonumber(loopBox.Text) or 3
-  refreshToggles()
-  saveState({autoLoop=autoLoop, autoRJ=autoRJ, loopDelay=loopDelay, rjDelay=rjDelay})
-end)
-
-rjToggle.MouseButton1Click:Connect(function()
-  autoRJ = not autoRJ
-  rjDelay = tonumber(rjBox.Text) or 5
-  refreshToggles()
-  saveState({autoLoop=autoLoop, autoRJ=autoRJ, loopDelay=loopDelay, rjDelay=rjDelay})
-end)
-
-GuiSvc.ErrorMessageChanged:Connect(function()
-  if autoRJ then
-    task.delay(rjDelay, function()
-      if #Players:GetPlayers() <= 1 then
-        LP:Kick("\nRejoining...")
-        task.wait()
-        TP:Teleport(game.PlaceId, LP)
-      else
-        TP:TeleportToPlaceInstance(game.PlaceId, game.JobId, LP)
-      end
-    end)
-  end
-end)
-
 task.spawn(function()
-  while task.wait(0.05) do
+  while card.Parent do
+    delayLoop = tonumber(boxLoop.Text) or delayLoop
+    delayRJ   = tonumber(boxRJ.Text) or delayRJ
     if autoLoop then
-      loopDelay = tonumber(loopBox.Text) or 3
-      safeTP(summitPos)
-      checkpointDance(summitPos)
+      safeTP(SUMMIT)
+      checkpointDance(SUMMIT)
       local t0=tick()
-      while tick()-t0 < loopDelay do
+      while tick()-t0 < delayLoop do
         if not autoLoop then break end
         task.wait(0.05)
       end
+      if autoRJ and autoLoop then
+        local t1=tick()
+        while tick()-t1 < math.max(0, delayRJ) do
+          if not autoLoop then break end
+          task.wait(0.05)
+        end
+        if autoLoop then
+          local place, job = game.PlaceId, game.JobId
+          if #Players:GetPlayers() <= 1 then
+            LP:Kick("\nRejoining...")
+            task.wait()
+            TP:Teleport(place, LP)
+          else
+            TP:TeleportToPlaceInstance(place, job, LP)
+          end
+        end
+      end
     end
+    task.wait(0.05)
   end
 end)
 
+btnLoop.MouseButton1Click:Connect(function()
+  autoLoop = not autoLoop; refreshLoopBtn(); persist()
+end)
+btnRJ.MouseButton1Click:Connect(function()
+  autoRJ = not autoRJ; refreshRJBtn(); persist()
+end)
+boxLoop.FocusLost:Connect(function() delayLoop = tonumber(boxLoop.Text) or 3; boxLoop.Text=tostring(delayLoop); persist() end)
+boxRJ.FocusLost:Connect(function() delayRJ = tonumber(boxRJ.Text) or 5; boxRJ.Text=tostring(delayRJ); persist() end)
+
 ----------------------------------------------------------------
--- SUB: POSEIDON QUEST (dropdown manual + Auto)
+-- SECTION 3: POSEIDON QUEST (dropdown manual + Auto)
 ----------------------------------------------------------------
 local pq = newSub("Poseidon Quest")
 
@@ -467,7 +469,7 @@ status.BackgroundTransparency=1; status.TextColor3=Theme.text2; status.Font=Enum
 status.Text="Status: —"; status.Size=UDim2.new(1,0,0,22); status.Parent=pq
 local function setStatus(txt, good) status.Text = "Status: "..txt; status.TextColor3 = good and Theme.good or Theme.text2 end
 
--- ROW: [Dropdown manual] [Go To]
+-- Row: [Dropdown manual] [Go To]
 local prow = Instance.new("Frame"); prow.BackgroundTransparency=1; prow.Size=UDim2.new(1,0,0,36); prow.Parent=pq
 local pl = Instance.new("UIListLayout", prow)
 pl.FillDirection=Enum.FillDirection.Horizontal; pl.Padding=UDim.new(0,8); pl.VerticalAlignment=Enum.VerticalAlignment.Center
@@ -476,6 +478,7 @@ local pRight = Instance.new("Frame")
 pRight.BackgroundTransparency=1
 pRight.Size = UDim2.new(1, -(120+8), 1, 0)
 pRight.Parent = prow
+
 local pLay   = Instance.new("UIListLayout", pRight)
 pLay.FillDirection=Enum.FillDirection.Horizontal; pLay.Padding=UDim.new(0,8)
 pLay.HorizontalAlignment = Enum.HorizontalAlignment.Left
@@ -494,36 +497,22 @@ pGo.Font=Enum.Font.GothamSemibold; pGo.TextSize=14; pGo.TextColor3=Theme.text
 pGo.BackgroundColor3=Theme.accA; pGo.Size=UDim2.new(0,120,1,0); pGo.Parent=prow
 corner(pGo,8); stroke(pGo,Theme.accB,1).Transparency=.3
 
--- Panel list manual
+-- Panel list (dipasang ke `card`)
 local pPanel = Instance.new("Frame")
 pPanel.Visible=false; pPanel.BackgroundColor3=Theme.card
-pPanel.Size=UDim2.new(0,260,0,184); pPanel.Parent=secRoot
-pPanel.ClipsDescendants=true; pPanel.ZIndex=5
+pPanel.Size=UDim2.new(0,260,0,184); pPanel.Parent=card
+pPanel.ClipsDescendants=true; pPanel.ZIndex=50
 corner(pPanel,8); stroke(pPanel,Theme.accB,1).Transparency=.35
 
 local pList = Instance.new("ScrollingFrame", pPanel)
 pList.BackgroundTransparency=1; pList.Size=UDim2.fromScale(1,1)
 pList.ScrollBarThickness=6; pList.CanvasSize=UDim2.new(0,0,0,0)
-pList.ZIndex=6; pList.ClipsDescendants=true
+pList.ZIndex=51; pList.ClipsDescendants=true
 local pUIL = Instance.new("UIListLayout", pList); pUIL.Padding=UDim.new(0,6)
 pUIL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
   pList.CanvasSize=UDim2.new(0,0,0,pUIL.AbsoluteContentSize.Y+8)
 end)
-
-local function placePPanel()
-  local rootAbs = secRoot.AbsolutePosition
-  local rootSize = secRoot.AbsoluteSize
-  local abs = pdd.AbsolutePosition
-  local ddSize = pdd.AbsoluteSize
-  local margin, width = 8, 260
-  local x = abs.X - rootAbs.X
-  local y = abs.Y - rootAbs.Y + ddSize.Y + 6
-  if x < margin then x = margin end
-  if x + width + margin > rootSize.X then x = rootSize.X - width - margin end
-  local maxH = math.min(224, rootSize.Y - y - margin)
-  pPanel.Size = UDim2.new(0, width, 0, math.max(120, maxH))
-  pPanel.Position = UDim2.fromOffset(x, y)
-end
+local function placePPanel() clampDropdown(pdd, pPanel) end
 
 local manualPoints = {
   {"Note 1", Vector3.new(  40.992,  42.024, -1013.635)},
@@ -542,7 +531,7 @@ for i,entry in ipairs(manualPoints) do
   local b=Instance.new("TextButton")
   b.AutoButtonColor=false; b.Text=entry[1]; b.Font=Enum.Font.Gotham; b.TextSize=14; b.TextColor3=Theme.text
   b.TextWrapped=false; b.TextTruncate=Enum.TextTruncate.AtEnd
-  b.BackgroundColor3=Color3.fromRGB(90,74,140); b.Size=UDim2.new(1,-12,0,32); b.Parent=pList; b.ZIndex=7
+  b.BackgroundColor3=Color3.fromRGB(90,74,140); b.Size=UDim2.new(1,-12,0,32); b.Parent=pList; b.ZIndex=52
   corner(b,8)
   b.MouseEnter:Connect(function() b.BackgroundColor3=Color3.fromRGB(110,90,170) end)
   b.MouseLeave:Connect(function() b.BackgroundColor3=Color3.fromRGB(90,74,140) end)
@@ -565,7 +554,7 @@ pGo.MouseButton1Click:Connect(function()
   safeTP(pos)
 end)
 
--- Tombol Auto Quest Poseidon
+-- Tombol Auto Quest (tetap)
 local function mkBtn(txt, cb)
   local b=Instance.new("TextButton")
   b.AutoButtonColor=false; b.Text=txt; b.Font=Enum.Font.GothamSemibold; b.TextSize=14; b.TextColor3=Theme.text
