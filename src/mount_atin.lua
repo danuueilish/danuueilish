@@ -1,5 +1,5 @@
 -- src/mount_atin.lua
--- Mount Atin : Checkpoint + Auto Summit + Poseidon Quest (rapi + aman)
+-- Mount Atin : Checkpoint + Auto Summit + Poseidon Quest (rapi + aman + collapsible)
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
 
@@ -32,7 +32,6 @@ local function HRP()
   return ch:FindFirstChild("HumanoidRootPart"), ch:FindFirstChildOfClass("Humanoid")
 end
 
--- Teleport aman: pad sementara + nolkan velocity biar gak jatuh
 local function safeTP(pos)
   local hrp, hum = HRP(); if not hrp then return false end
   local pad = Instance.new("Part")
@@ -88,23 +87,22 @@ local function posFrom(inst)
 end
 
 ----------------------------------------------------------------
--- COLLAPSIBLE ROOT FOR "MOUNT ATIN"
+-- COLLAPSIBLE: gunakan frame section asli "Mount Atin"
 ----------------------------------------------------------------
-local mountRoot = UI.MountSections["Mount Atin"]
+local secRoot = UI.MountSections["Mount Atin"]
+local COLLAPSED_H = 72 -- match card gunung lain
 
-local COLLAPSED_H = 72 -- << tinggi kartu saat collapsed (sesuai mount lain)
+-- Bersihkan isi lama jika ada (hanya child yang bukan UIListLayout/Stroke/Corner)
+for _,ch in ipairs(secRoot:GetChildren()) do
+  if not (ch:IsA("UIListLayout") or ch:IsA("UIStroke") or ch:IsA("UICorner")) then ch:Destroy() end
+end
+secRoot.BackgroundColor3 = Theme.card
+corner(secRoot,12); if not secRoot:FindFirstChildOfClass("UIStroke") then stroke(secRoot,Theme.accA,1).Transparency=.5 end
 
--- wrapper card (selalu ada)
-local wrap = Instance.new("Frame")
-wrap.BackgroundColor3 = Theme.card
-wrap.Size = UDim2.new(1,-16,0,COLLAPSED_H)
-wrap.Parent = mountRoot
-corner(wrap,12); stroke(wrap,Theme.accA,1).Transparency = .5
-
--- header bar (klik untuk expand/collapse)
+-- Header tombol
 local header = Instance.new("TextButton")
-header.AutoButtonColor=false
-header.BackgroundTransparency=1
+header.AutoButtonColor = false
+header.BackgroundTransparency = 1
 header.Text = "  ▶  Mount Atin"
 header.Font = Enum.Font.GothamBlack
 header.TextSize = 18
@@ -112,54 +110,48 @@ header.TextColor3 = Theme.text
 header.TextXAlignment = Enum.TextXAlignment.Left
 header.Size = UDim2.new(1,-8,0,28)
 header.Position = UDim2.fromOffset(8,6)
-header.Parent = wrap
+header.Parent = secRoot
 
--- container internal (di-hide saat collapsed)
-local innerHolder = Instance.new("Frame")
-innerHolder.BackgroundTransparency = 1
-innerHolder.Visible = false
-innerHolder.Size = UDim2.new(1,-16,0,0)
-innerHolder.Position = UDim2.fromOffset(8,36)
-innerHolder.Parent = wrap
+-- Holder konten (disembunyikan saat collapsed)
+local contentHolder = Instance.new("Frame")
+contentHolder.BackgroundTransparency = 1
+contentHolder.Visible = false
+contentHolder.Size = UDim2.new(1,-16,0,0)
+contentHolder.Position = UDim2.fromOffset(8,36)
+contentHolder.Parent = secRoot
 
-local innerList = Instance.new("UIListLayout", innerHolder)
-innerList.Padding = UDim.new(0,10)
+local contentList = Instance.new("UIListLayout", contentHolder)
+contentList.Padding = UDim.new(0,10)
 
-local function resizeWrap()
-  if innerHolder.Visible then
-    wrap.Size = UDim2.new(1,-16,0, math.max(COLLAPSED_H, 40 + innerList.AbsoluteContentSize.Y))
-    innerHolder.Size = UDim2.new(1,-16,0, innerList.AbsoluteContentSize.Y)
+local function resizeSection()
+  if contentHolder.Visible then
+    secRoot.Size = UDim2.new(1,-16,0, math.max(COLLAPSED_H, 40 + contentList.AbsoluteContentSize.Y))
+    contentHolder.Size = UDim2.new(1,-16,0, contentList.AbsoluteContentSize.Y)
   else
-    wrap.Size = UDim2.new(1,-16,0, COLLAPSED_H)
-    innerHolder.Size = UDim2.new(1,-16,0, 0)
+    secRoot.Size = UDim2.new(1,-16,0, COLLAPSED_H)
+    contentHolder.Size = UDim2.new(1,-16,0, 0)
   end
 end
-innerList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeWrap)
+contentList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeSection)
 
 local expanded = false
 local function setExpanded(on)
   expanded = on and true or false
-  innerHolder.Visible = expanded
+  contentHolder.Visible = expanded
   header.Text = expanded and "  ▼  Mount Atin" or "  ▶  Mount Atin"
-  resizeWrap()
+  resizeSection()
 end
-
--- default collapsed di awal
 setExpanded(false)
-
--- toggle on click
-header.MouseButton1Click:Connect(function()
-  setExpanded(not expanded)
-end)
+header.MouseButton1Click:Connect(function() setExpanded(not expanded) end)
 
 ----------------------------------------------------------------
--- SUBSECTION FACTORY (dalam innerHolder)
+-- SUBSECTION FACTORY (parent = contentHolder)
 ----------------------------------------------------------------
 local function newSub(titleText)
   local box = Instance.new("Frame")
   box.BackgroundColor3 = Theme.card
   box.Size = UDim2.new(1,0,0,60)
-  box.Parent = innerHolder
+  box.Parent = contentHolder
   corner(box,10); stroke(box,Theme.accA,1).Transparency=.5
 
   local title = Instance.new("TextLabel")
@@ -185,7 +177,7 @@ local function newSub(titleText)
   local function resize()
     box.Size = UDim2.new(1,0,0, math.max(60, 40 + lay.AbsoluteContentSize.Y))
     inner.Size = UDim2.new(1,-16,0, lay.AbsoluteContentSize.Y)
-    resizeWrap()
+    resizeSection()
   end
   lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resize)
   task.defer(resize)
@@ -218,10 +210,10 @@ dd.TextWrapped=false; dd.TextTruncate=Enum.TextTruncate.AtEnd
 dd.BackgroundColor3=Theme.card; dd.Size=UDim2.new(1,-(120+8),1,0); dd.Parent=right
 corner(dd,8); stroke(dd,Theme.accA,1).Transparency=.45
 
--- Panel list (ditaruh di wrap agar ga kepotong)
+-- Panel list (letakkan di secRoot agar tidak kepotong)
 local panel = Instance.new("Frame")
 panel.Visible=false; panel.BackgroundColor3=Theme.card
-panel.Size=UDim2.new(0,260,0,184); panel.Parent=wrap
+panel.Size=UDim2.new(0,260,0,184); panel.Parent=secRoot
 panel.ClipsDescendants=true; panel.ZIndex=5
 corner(panel,8); stroke(panel,Theme.accB,1).Transparency=.35
 
@@ -235,8 +227,8 @@ l:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 local function placePanel()
-  local rootAbs = wrap.AbsolutePosition
-  local rootSize = wrap.AbsoluteSize
+  local rootAbs = secRoot.AbsolutePosition
+  local rootSize = secRoot.AbsoluteSize
   local abs = dd.AbsolutePosition
   local ddSize = dd.AbsoluteSize
   local margin = 8
@@ -317,7 +309,6 @@ UIS.InputBegan:Connect(function(input,gp)
   if not inDD and not inPanel then panel.Visible=false end
 end)
 
--- Tombol Go To
 local go = Instance.new("TextButton")
 go.AutoButtonColor=false; go.Text="Go To"
 go.Font=Enum.Font.GothamSemibold; go.TextSize=14; go.TextColor3=Theme.text
@@ -328,7 +319,6 @@ go.MouseButton1Click:Connect(function()
   safeTP(checkpoints[selectedIndex][2])
 end)
 
--- Catatan
 do
   local note = Instance.new("TextLabel")
   note.BackgroundTransparency=1; note.TextWrapped=true; note.TextColor3=Theme.text2; note.Font=Enum.Font.Gotham; note.TextSize=13
@@ -345,7 +335,7 @@ do
   local help = Instance.new("TextLabel")
   help.BackgroundTransparency=1; help.TextWrapped=true; help.TextColor3=Theme.text2
   help.Font=Enum.Font.Gotham; help.TextSize=13
-  help.Text = "Cara Pakai:\n1) Pastikan auto-execute aktif.\n2) Atur delay Auto Loop (default 3s).\n3) Atur Auto Rejoin (default 5s) — sebaiknya > delay loop.\n4) Toggle yang kamu perlukan."
+  help.Text = "Cara Pakai:\n1) Pastikan auto-execute aktif.\n2) Delay Auto Loop (default 3s).\n3) Delay Auto Rejoin (default 5s, disarankan > loop).\n4) Toggle sesuai kebutuhan."
   help.Size = UDim2.new(1,0,0,58)
   help.Parent = asInner
 end
@@ -438,7 +428,6 @@ rjToggle.MouseButton1Click:Connect(function()
   saveState({autoLoop=autoLoop, autoRJ=autoRJ, loopDelay=loopDelay, rjDelay=rjDelay})
 end)
 
--- auto rejoin listener (aktif only when toggle ON)
 GuiSvc.ErrorMessageChanged:Connect(function()
   if autoRJ then
     task.delay(rjDelay, function()
@@ -453,7 +442,6 @@ GuiSvc.ErrorMessageChanged:Connect(function()
   end
 end)
 
--- main loop (teleport ke summit + goyang 3x)
 task.spawn(function()
   while task.wait(0.05) do
     if autoLoop then
@@ -468,8 +456,6 @@ task.spawn(function()
     end
   end
 end)
-
-end -- auto summit scope
 
 ----------------------------------------------------------------
 -- SUB: POSEIDON QUEST (dropdown manual + Auto)
@@ -511,7 +497,7 @@ corner(pGo,8); stroke(pGo,Theme.accB,1).Transparency=.3
 -- Panel list manual
 local pPanel = Instance.new("Frame")
 pPanel.Visible=false; pPanel.BackgroundColor3=Theme.card
-pPanel.Size=UDim2.new(0,260,0,184); pPanel.Parent=wrap
+pPanel.Size=UDim2.new(0,260,0,184); pPanel.Parent=secRoot
 pPanel.ClipsDescendants=true; pPanel.ZIndex=5
 corner(pPanel,8); stroke(pPanel,Theme.accB,1).Transparency=.35
 
@@ -525,8 +511,8 @@ pUIL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 local function placePPanel()
-  local rootAbs = wrap.AbsolutePosition
-  local rootSize = wrap.AbsoluteSize
+  local rootAbs = secRoot.AbsolutePosition
+  local rootSize = secRoot.AbsoluteSize
   local abs = pdd.AbsolutePosition
   local ddSize = pdd.AbsoluteSize
   local margin, width = 8, 260
