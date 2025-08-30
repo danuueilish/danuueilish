@@ -1,26 +1,20 @@
 -- src/mount_atin.lua
--- Mount Atin: dropdown checkpoint + tombol Go To (pakai section yg sudah ada)
-
-local UI = _G.danuu_hub_ui
-if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
-
--- warna fallback (mirip theme di ui_main)
-local Theme = {
-  bg    = Color3.fromRGB(24,20,40),
-  card  = Color3.fromRGB(44,36,72),
-  text  = Color3.fromRGB(235,230,255),
-  text2 = Color3.fromRGB(190,180,220),
-  accA  = Color3.fromRGB(125,84,255),
-  accB  = Color3.fromRGB(215,55,255),
+-- Mount Atin: pilih checkpoint via dropdown + tombol Go To
+local UI = _G.danuu_hub_ui; if not UI or not UI.Sections or not UI.Sections.Mount then return end
+local Theme = UI.Theme or {
+  bg=Color3.fromRGB(24,20,40), card=Color3.fromRGB(44,36,72),
+  text=Color3.fromRGB(235,230,255), text2=Color3.fromRGB(190,180,220),
+  accA=Color3.fromRGB(125,84,255), accB=Color3.fromRGB(215,55,255)
 }
 
 local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p; return c end
 local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.6; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 
--- pakai section “Mount Atin” yg sudah dibuat oleh ui_main
-local sec = UI.MountSections["Mount Atin"]
+-- pakai section yang SUDAH ada (judulnya “Mount Atin”)
+local sec = UI.Sections.Mount["Mount Atin"]
+if not sec then return end
 
--- ===== data checkpoint
+-- ===== data checkpoint (nama -> Vector3)
 local list = {
   {"Basecamp",               Vector3.new(  16.501,   54.470, -1082.821)},
   {"Summit Leaderboard",     Vector3.new(  31.554,   53.176, -1030.635)},
@@ -63,7 +57,7 @@ local list = {
   {"Mr Bus Summit",          Vector3.new( 638.770, 2203.497,  4207.933)},
 }
 
--- ===== 1 baris: [Checkpoint label] [Dropdown] [Go To]
+-- ===== layout satu baris: [Label kiri]  [Dropdown + GoTo di kanan]
 local row = Instance.new("Frame")
 row.BackgroundTransparency = 1
 row.Size = UDim2.new(1,0,0,36)
@@ -74,6 +68,7 @@ uiH.FillDirection = Enum.FillDirection.Horizontal
 uiH.Padding = UDim.new(0,8)
 uiH.VerticalAlignment = Enum.VerticalAlignment.Center
 
+-- label kiri
 local label = Instance.new("TextLabel")
 label.BackgroundTransparency = 1
 label.Text = "Checkpoint"
@@ -83,6 +78,7 @@ label.TextColor3 = Theme.text
 label.Size = UDim2.new(0,120,1,0)
 label.Parent = row
 
+-- container kanan (dropdown + tombol)
 local right = Instance.new("Frame")
 right.BackgroundTransparency = 1
 right.Size = UDim2.new(1,-(120+8),1,0)
@@ -94,7 +90,7 @@ rightLayout.Padding = UDim.new(0,8)
 rightLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 rightLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
--- Dropdown
+-- ===== dropdown
 local dd = Instance.new("TextButton")
 dd.AutoButtonColor = false
 dd.Text = "Pilih checkpoint..."
@@ -106,7 +102,7 @@ dd.Size = UDim2.new(0,260,1,0)
 dd.Parent = right
 corner(dd,8); stroke(dd,Theme.accA,1).Transparency=.45
 
--- Panel list di bawah dropdown (posisi absolut supaya gak kepotong)
+-- panel list muncul di bawah dropdown, masih di dalam section (biar gak kepotong)
 local panel = Instance.new("Frame")
 panel.Visible = false
 panel.BackgroundColor3 = Theme.card
@@ -115,12 +111,14 @@ panel.Parent = sec
 panel.ZIndex = 5
 corner(panel,8); stroke(panel,Theme.accB,1).Transparency=.35
 
+-- posisikan panel tepat di bawah dropdown setiap kali layout berubah
 local function placePanel()
   local abs = dd.AbsolutePosition
   local rootAbs = panel.Parent.AbsolutePosition
   panel.Position = UDim2.fromOffset(abs.X - rootAbs.X, (abs.Y - rootAbs.Y) + dd.AbsoluteSize.Y + 6)
 end
 
+-- isi list
 local listScroll = Instance.new("ScrollingFrame", panel)
 listScroll.BackgroundTransparency = 1
 listScroll.Size = UDim2.fromScale(1,1)
@@ -142,13 +140,19 @@ for i,entry in ipairs(list) do
   b.Font = Enum.Font.Gotham
   b.TextSize = 14
   b.TextColor3 = Theme.text
-  b.BackgroundColor3 = Color3.fromRGB(90,74,140)
+  b.BackgroundColor3 = Color3.fromRGB(90, 74, 140) -- aksen sedikit lebih terang
   b.Size = UDim2.new(1,-12,0,28)
   b.Parent = listScroll
   corner(b,8)
   b.ZIndex = 7
-  b.MouseEnter:Connect(function() b.BackgroundColor3 = Color3.fromRGB(110,90,170) end)
-  b.MouseLeave:Connect(function() b.BackgroundColor3 = Color3.fromRGB(90,74,140) end)
+
+  b.MouseEnter:Connect(function()
+    b.BackgroundColor3 = Color3.fromRGB(110, 90, 170)
+  end)
+  b.MouseLeave:Connect(function()
+    b.BackgroundColor3 = Color3.fromRGB(90, 74, 140)
+  end)
+
   b.MouseButton1Click:Connect(function()
     selectedIndex = i
     dd.Text = entry[1]
@@ -161,20 +165,20 @@ dd.MouseButton1Click:Connect(function()
   panel.Visible = not panel.Visible
 end)
 
--- hide panel kalau klik di luar
+-- sembunyikan panel kalau klik di luar
 game:GetService("UserInputService").InputBegan:Connect(function(input,gp)
   if gp then return end
   if panel.Visible and input.UserInputType == Enum.UserInputType.MouseButton1 then
     local pos = input.Position
-    local inDD = (pos.X>=dd.AbsolutePosition.X and pos.X<=dd.AbsolutePosition.X+dd.AbsoluteSize.X
-      and pos.Y>=dd.AbsolutePosition.Y and pos.Y<=dd.AbsolutePosition.Y+dd.AbsoluteSize.Y)
-    local inPanel = (pos.X>=panel.AbsolutePosition.X and pos.X<=panel.AbsolutePosition.X+panel.AbsoluteSize.X
-      and pos.Y>=panel.AbsolutePosition.Y and pos.Y<=panel.AbsolutePosition.Y+panel.AbsoluteSize.Y)
+    local inDD = (pos.X >= dd.AbsolutePosition.X and pos.X <= dd.AbsolutePosition.X+dd.AbsoluteSize.X
+      and pos.Y >= dd.AbsolutePosition.Y and pos.Y <= dd.AbsolutePosition.Y+dd.AbsoluteSize.Y)
+    local inPanel = (pos.X >= panel.AbsolutePosition.X and pos.X <= panel.AbsolutePosition.X+panel.AbsoluteSize.X
+      and pos.Y >= panel.AbsolutePosition.Y and pos.Y <= panel.AbsolutePosition.Y+panel.AbsoluteSize.Y)
     if not inDD and not inPanel then panel.Visible=false end
   end
 end)
 
--- Tombol Go To
+-- ===== tombol Go To
 local go = Instance.new("TextButton")
 go.AutoButtonColor = false
 go.Text = "Go To"
@@ -186,17 +190,16 @@ go.Size = UDim2.new(0,120,1,0)
 go.Parent = right
 corner(go,8); stroke(go,Theme.accB,1).Transparency=.3
 
+-- helper teleport + “nudge” kecil
 local function HRP()
   local plr = game:GetService("Players").LocalPlayer
   local ch = plr.Character or plr.CharacterAdded:Wait()
   return ch:FindFirstChild("HumanoidRootPart")
 end
-
-local function nudge(center)
+local function jumpDance(center)
   local h = HRP(); if not h then return end
-  local cam = workspace.CurrentCamera
-  local dir = (cam and cam.CFrame.LookVector or h.CFrame.LookVector); dir = Vector3.new(dir.X,0,dir.Z)
-  if dir.Magnitude < .1 then dir = Vector3.new(1,0,0) end; dir = dir.Unit
+  local dir = workspace.CurrentCamera and workspace.CurrentCamera.CFrame.LookVector or h.CFrame.LookVector
+  dir = Vector3.new(dir.X,0,dir.Z); if dir.Magnitude < .1 then dir = Vector3.new(1,0,0) end; dir = dir.Unit
   for _=1,2 do
     h.CFrame = CFrame.new(center + dir*6); task.wait(0.08)
     h.CFrame = CFrame.new(center - dir*6); task.wait(0.08)
@@ -213,17 +216,17 @@ go.MouseButton1Click:Connect(function()
   local h = HRP()
   if h then
     h.CFrame = CFrame.new(pos)
-    nudge(pos)
+    jumpDance(pos)
   end
 end)
 
--- catatan
+-- keterangan singkat
 local note = Instance.new("TextLabel")
 note.BackgroundTransparency = 1
 note.TextWrapped = true
 note.TextColor3 = Theme.text2
 note.Font = Enum.Font.Gotham
 note.TextSize = 13
-note.Text = "Pilih checkpoint dari dropdown (kanan), lalu tekan 'Go To' untuk teleport."
+note.Text = "Pilih checkpoint (1 – Summit) dari dropdown di kanan, lalu tekan 'Go To' untuk teleport."
 note.Size = UDim2.new(1,0,0,32)
 note.Parent = sec
