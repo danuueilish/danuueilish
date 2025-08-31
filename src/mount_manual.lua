@@ -296,7 +296,7 @@ loopBtn.Font=Enum.Font.GothamSemibold; loopBtn.TextSize=14; loopBtn.TextColor3=T
 loopBtn.BackgroundColor3=Settings.autoLoop and Theme.accA or Theme.card; corner(loopBtn,8); stroke(loopBtn,Theme.accA,1).Transparency=.45; loopBtn.Parent=aRight
 
 -- ===== Main Auto Loop =====
-local looping=false
+local looping = false
 local function setLoop(on)
   Settings.autoLoop = on and true or false
   loopBtn.Text = "Auto loop: "..(Settings.autoLoop and "ON" or "OFF")
@@ -304,36 +304,38 @@ local function setLoop(on)
   saveSettings()
 
   if Settings.autoLoop and not looping then
-    looping=true
+    looping = true
     task.spawn(function()
       while Settings.autoLoop do
-        if #waypoints==0 then task.wait(0.15) goto CONT end
+        if #waypoints == 0 then
+          task.wait(0.15)
+        else
+          local d = tonumber(delayBox.Text) or Settings.loopDelay or 3
+          d = math.clamp(math.floor(d + 0.5), 1, 60)
 
-        local d = tonumber(delayBox.Text) or Settings.loopDelay or 3
-        d = math.clamp(math.floor(d+0.5),1,60)
+          for i = 1, #waypoints do
+            if not Settings.autoLoop then break end
 
-        for i=1,#waypoints do
-          if not Settings.autoLoop then break end
-          local pos = waypoints[i]
-          local h=HRP(); if h then h.CFrame=CFrame.new(pos) end
-          if Settings.moveDance then checkpointDance(pos) end
+            local pos = waypoints[i]
+            local h = HRP(); if h then h.CFrame = CFrame.new(pos) end
+            if Settings.moveDance then checkpointDance(pos) end
 
-          local t0=tick()
-          while tick()-t0 < d do if not Settings.autoLoop then break end; task.wait(0.05) end
+            local t0 = tick()
+            while Settings.autoLoop and (tick() - t0 < d) do task.wait(0.05) end
 
-          if Settings.autoLoop and i==#waypoints and Settings.autoKill then
-            local hum=Hum(); if hum then hum.Health = 0 end
-            LP.CharacterAdded:Wait(); task.wait(0.8)
+            -- akhir siklus
+            if Settings.autoLoop and i == #waypoints and Settings.autoKill then
+              local hum = Hum(); if hum then hum.Health = 0 end
+              LP.CharacterAdded:Wait(); task.wait(0.8)
+            end
           end
         end
-        ::CONT::
         task.wait(0.05)
       end
-      looping=false
+      looping = false
     end)
   end
 end
-loopBtn.MouseButton1Click:Connect(function() setLoop(not Settings.autoLoop) end)
 
 -- apply nilai yang tersimpan
 delayBox.Text = tostring(Settings.loopDelay or 3)
