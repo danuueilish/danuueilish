@@ -29,32 +29,43 @@ local function HRP() local ch=LP.Character or LP.CharacterAdded:Wait(); return c
 -- ===== section
 local sec = UI.NewSection(UI.Tabs.Menu, "Local Player")
 
--- ===== row helper  (label kiri | kontrol kanan)
+-- ===== row helper  (label kiri FIXED | kontrol kanan sisa lebar, align right)
+local LEFT_W = 160
 local function newRow(height)
-  local row=Instance.new("Frame"); row.BackgroundColor3=Theme.card; row.Size=UDim2.new(1,0,0,height or 56); row.Parent=sec
+  local row=Instance.new("Frame")
+  row.BackgroundColor3=Theme.card
+  row.Size=UDim2.new(1,0,0,height or 56)
+  row.Parent=sec
   corner(row,10); stroke(row,Theme.accA,1).Transparency=.6
-  local pad=Instance.new("UIPadding",row); pad.PaddingLeft=UDim.new(0,10); pad.PaddingRight=UDim.new(0,10); pad.PaddingTop=UDim.new(0,8); pad.PaddingBottom=UDim.new(0,8)
+  local pad=Instance.new("UIPadding",row)
+  pad.PaddingLeft=UDim.new(0,10); pad.PaddingRight=UDim.new(0,10); pad.PaddingTop=UDim.new(0,8); pad.PaddingBottom=UDim.new(0,8)
 
-  local grid = Instance.new("UIGridLayout", row)
-  grid.CellPadding = UDim2.new(0,10,0,0)
-  grid.CellSize     = UDim2.new(0,140,1,0) -- kolom kiri fix 140
-  grid.FillDirectionMaxCells = 2
-  grid.FillDirection = Enum.FillDirection.Horizontal
-  grid.SortOrder     = Enum.SortOrder.LayoutOrder
-  grid.HorizontalAlignment = Enum.HorizontalAlignment.Left
-  grid.VerticalAlignment   = Enum.VerticalAlignment.Center
+  local lay=Instance.new("UIListLayout",row)
+  lay.FillDirection=Enum.FillDirection.Horizontal
+  lay.Padding=UDim.new(0,10)
+  lay.VerticalAlignment=Enum.VerticalAlignment.Center
 
   local left=Instance.new("TextLabel")
-  left.BackgroundTransparency=1; left.Font=Enum.Font.GothamSemibold; left.TextSize=16
-  left.TextColor3=Theme.text; left.TextXAlignment=Enum.TextXAlignment.Left; left.Parent=row
+  left.BackgroundTransparency=1
+  left.Size=UDim2.new(0,LEFT_W,1,0)
+  left.Font=Enum.Font.GothamSemibold
+  left.TextSize=16
+  left.TextColor3=Theme.text
+  left.TextXAlignment=Enum.TextXAlignment.Left
+  left.Parent=row
 
-  local rightWrap=Instance.new("Frame")
-  rightWrap.BackgroundTransparency=1; rightWrap.Parent=row
-  local rlay=Instance.new("UIListLayout", rightWrap)
-  rlay.FillDirection=Enum.FillDirection.Horizontal; rlay.Padding=UDim.new(0,10)
-  rlay.VerticalAlignment=Enum.VerticalAlignment.Center; rlay.HorizontalAlignment=Enum.HorizontalAlignment.Right
+  local right=Instance.new("Frame")
+  right.BackgroundTransparency=1
+  right.Size=UDim2.new(1,-LEFT_W,1,0)
+  right.Parent=row
 
-  return row,left,rightWrap
+  local rlay=Instance.new("UIListLayout",right)
+  rlay.FillDirection=Enum.FillDirection.Horizontal
+  rlay.Padding=UDim.new(0,10)
+  rlay.VerticalAlignment=Enum.VerticalAlignment.Center
+  rlay.HorizontalAlignment=Enum.HorizontalAlignment.Right
+
+  return row,left,right
 end
 
 ----------------------------------------------------------------
@@ -63,20 +74,38 @@ end
 local _, wsLeft, wsRight = newRow(56); wsLeft.Text = "walkspeed"
 
 local sliderBar = Instance.new("Frame")
-sliderBar.BackgroundColor3=Theme.bg; sliderBar.Size=UDim2.new(1,-106,0,12); sliderBar.Parent=wsRight
+sliderBar.BackgroundColor3=Theme.bg
+sliderBar.Size=UDim2.new(1,-106,0,12)    -- panjang, sisa dikurangi box 96 + padding 10
+sliderBar.Parent=wsRight
 corner(sliderBar,6); stroke(sliderBar,Theme.accA,1).Transparency=.5
 
-local sliderFill=Instance.new("Frame"); sliderFill.BackgroundColor3=Theme.accA; sliderFill.Size=UDim2.new(0,0,1,0); sliderFill.Parent=sliderBar; corner(sliderFill,6)
-local sliderKnob=Instance.new("Frame"); sliderKnob.BackgroundColor3=Theme.accB; sliderKnob.Size=UDim2.fromOffset(18,18); sliderKnob.Position=UDim2.new(0,-9,0.5,-9); sliderKnob.Parent=sliderBar; corner(sliderKnob,9)
+local sliderFill=Instance.new("Frame")
+sliderFill.BackgroundColor3=Theme.accA
+sliderFill.Size=UDim2.new(0,0,1,0)
+sliderFill.Parent=sliderBar
+corner(sliderFill,6)
+
+local sliderKnob=Instance.new("Frame")
+sliderKnob.BackgroundColor3=Theme.accB
+sliderKnob.Size=UDim2.fromOffset(18,18)
+sliderKnob.Position=UDim2.new(0,-9,0.5,-9)
+sliderKnob.Parent=sliderBar
+corner(sliderKnob,9)
 
 local wsBox=Instance.new("TextBox")
-wsBox.Size=UDim2.new(0,96,0,34); wsBox.BackgroundColor3=Theme.card; wsBox.TextColor3=Theme.text; wsBox.Font=Enum.Font.Gotham
-wsBox.TextSize=14; wsBox.ClearTextOnFocus=false; wsBox.Text="16"; wsBox.TextXAlignment=Enum.TextXAlignment.Center; wsBox.Parent=wsRight
+wsBox.Size=UDim2.new(0,96,0,34)
+wsBox.BackgroundColor3=Theme.card
+wsBox.TextColor3=Theme.text
+wsBox.Font=Enum.Font.Gotham
+wsBox.TextSize=14
+wsBox.ClearTextOnFocus=false
+wsBox.Text="16"
+wsBox.TextXAlignment=Enum.TextXAlignment.Center
+wsBox.Parent=wsRight
 corner(wsBox,8); stroke(wsBox,Theme.accA,1).Transparency=.5
 
 local WS_MIN,WS_MAX=0,100
 local targetWS = Hum() and Hum().WalkSpeed or 16
-
 local function applyWS(v)
   targetWS = math.clamp(math.floor(tonumber(v) or targetWS), WS_MIN, WS_MAX)
   local rel=(targetWS-WS_MIN)/(WS_MAX-WS_MIN)
@@ -134,7 +163,7 @@ ijBtn.MouseButton1Click:Connect(function() setInf(not infOn) end)
 LP.CharacterAdded:Connect(function() if infOn then setInf(true) end end)
 
 ----------------------------------------------------------------
--- fly : [ fly ] [ ON/OFF ]  (gaya IY, mobile analog mengikuti arah kamera)
+-- fly : [ fly ] [ ON/OFF ]  (IY-like + mobile analog follow camera, smoothed)
 ----------------------------------------------------------------
 local _, flyLeft, flyRight = newRow(50); flyLeft.Text = "fly"
 local flyBtn=Instance.new("TextButton"); flyBtn.Size=UDim2.new(0,160,0,34); flyBtn.AutoButtonColor=false
@@ -143,8 +172,9 @@ corner(flyBtn,8); stroke(flyBtn,Theme.accA,1).Transparency=.5
 
 local flyOn=false; local flyConn; local gyro,vel
 local keys={W=false,A=false,S=false,D=false,Up=false,Down=false}
-local FLY_SPEED=2  -- E tambah, Q kurang (1..6)
-local INVERT_Z_FOR_MOBILE = true   -- kalau maju analog masih kebalik, ubah ke 'false'
+local FLY_SPEED=2           -- E tambah, Q kurang (1..6)
+local INVERT_Z_FOR_MOBILE = false  -- kalau maju analog masih kebalik, ubah ke true
+local SMOOTH = 0.20         -- smoothing lerp
 
 local function stopFly()
   flyOn=false
@@ -162,7 +192,7 @@ local function startFly()
   gyro=Instance.new("BodyGyro"); gyro.P=9e4; gyro.MaxTorque=Vector3.new(9e9,9e9,9e9); gyro.CFrame=(workspace.CurrentCamera and workspace.CurrentCamera.CFrame) or hrp.CFrame; gyro.Parent=hrp
   vel=Instance.new("BodyVelocity"); vel.MaxForce=Vector3.new(9e9,9e9,9e9); vel.Velocity=Vector3.zero; vel.Parent=hrp
 
-  flyConn = RS.RenderStepped:Connect(function()
+  flyConn = RS.RenderStepped:Connect(function(dt)
     if not hrp or not hrp.Parent then stopFly() return end
     local cam = workspace.CurrentCamera
     local cf  = cam and cam.CFrame or hrp.CFrame
@@ -177,7 +207,7 @@ local function startFly()
     if keys.Up then move += Vector3.new(0,1,0) end
     if keys.Down then move -= Vector3.new(0,1,0) end
 
-    -- mobile analog → Humanoid.MoveDirection (kamera-space, Z bisa dibalik kalau game beda)
+    -- mobile analog (kamera-space, hanya XZ; naik/turun pakai space/ctrl)
     local hum=Hum()
     if hum then
       local md = hum.MoveDirection
@@ -185,12 +215,14 @@ local function startFly()
         local horizLook  = Vector3.new(cf.LookVector.X,0,cf.LookVector.Z).Unit
         local horizRight = Vector3.new(cf.RightVector.X,0,cf.RightVector.Z).Unit
         local z = INVERT_Z_FOR_MOBILE and -md.Z or md.Z
-        move = (horizLook*z) + (horizRight*md.X) + Vector3.new(0, md.Y, 0)
+        move = (horizLook*z) + (horizRight*md.X)
       end
     end
 
     if move.Magnitude>0 then move=move.Unit end
-    vel.Velocity = move * (FLY_SPEED * 50)
+    -- smoothing velocity
+    local targetV = move * (FLY_SPEED * 50)
+    vel.Velocity = vel.Velocity:Lerp(targetV, SMOOTH)
     gyro.CFrame  = cf
   end)
 
@@ -246,7 +278,6 @@ local function addESP(plr)
   if not ch then return end
   clearESP(ch)
 
-  -- highlight (tidak menutupi: cuma outline)
   local hl = Instance.new("Highlight")
   hl.Name="danuu_esp"; hl.FillTransparency=1; hl.OutlineTransparency=0; hl.OutlineColor=Theme.accA; hl.Parent=ch
 
@@ -254,8 +285,8 @@ local function addESP(plr)
 
   local bb = Instance.new("BillboardGui")
   bb.Name="danuu_name_esp"; bb.Adornee=hrp; bb.AlwaysOnTop=true
-  bb.Size = UDim2.new(0,180,0,34)          -- kecil agar tidak nutup karakter
-  bb.StudsOffsetWorldSpace = Vector3.new(0,3.8,0)  -- lebih tinggi sedikit
+  bb.Size = UDim2.new(0,180,0,34)
+  bb.StudsOffsetWorldSpace = Vector3.new(0,3.8,0)
   bb.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
   bb.Parent = ch
 
