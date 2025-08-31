@@ -3,13 +3,9 @@
 -- Tidak mengubah ui_main.lua: hanya menambah section baru di Tab Mount
 
 local UI = _G.danuu_hub_ui
-if not UI or not UI.MountSections or not UI.MountSections["Manual"] then
-    warn("[danuu • Manual] container 'Manual' not found")
-    return
-end
-
--- Pakai section yang sudah dibuat oleh ui_main.lua
-local sec = UI.MountSections["Manual"]
+if not UI then return end
+local sec = (UI.MountSections and UI.MountSections["Manual"])
+          or UI.NewSection(UI.Tabs.Mount, "Manual")  -- fallback kalau belum ada
 
 -- ===== Services
 local Players            = game:GetService("Players")
