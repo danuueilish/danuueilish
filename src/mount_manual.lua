@@ -1,23 +1,22 @@
 -- src/mount_manual.lua
--- Section "Manual" (Waypoints manual + auto loop + opsi gerak 3x/8stud + auto respawn/kill + auto rejoin)
--- Tidak mengubah ui_main.lua: hanya menambah section baru di Tab Mount
+-- Section "Manual" (Waypoints manual + auto loop + dance 3x/8stud + auto respawn/kill + auto rejoin)
 
+-- ===== UI container =====
 local UI = _G.danuu_hub_ui
 if not UI then return end
 local sec = (UI.MountSections and UI.MountSections["Manual"])
-          or UI.NewSection(UI.Tabs.Mount, "Manual")  -- fallback kalau belum ada
+          or UI.NewSection(UI.Tabs.Mount, "Manual") -- JANGAN dideclare lagi!
 
--- ===== Services
-local Players            = game:GetService("Players")
-local UIS                = game:GetService("UserInputService")
-local RS                 = game:GetService("RunService")
-local GuiService         = game:GetService("GuiService")
-local TeleportService    = game:GetService("TeleportService")
-local HttpService        = game:GetService("HttpService")
+-- ===== Services =====
+local Players         = game:GetService("Players")
+local UIS             = game:GetService("UserInputService")
+local GuiService      = game:GetService("GuiService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService     = game:GetService("HttpService")
 
 local LP = Players.LocalPlayer
 
--- ===== Helpers kecil
+-- ===== Helpers UI =====
 local Theme = {
   bg    = Color3.fromRGB(24,20,40),
   card  = Color3.fromRGB(44,36,72),
@@ -34,7 +33,7 @@ local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Colo
 local function HRP() local ch=LP.Character or LP.CharacterAdded:Wait(); return ch:FindFirstChild("HumanoidRootPart") end
 local function Hum() local ch=LP.Character or LP.CharacterAdded:Wait(); return ch:FindFirstChildOfClass("Humanoid") end
 
--- file helpers
+-- ===== file helpers (executor) =====
 local CAN_FS = (writefile and readfile and isfile and makefolder) and true or false
 local function safe_read(path, fallback)
   if not CAN_FS or not isfile(path) then return fallback end
@@ -50,10 +49,24 @@ end
 local function enc(t) return HttpService:JSONEncode(t) end
 local function dec(s) local ok,res=pcall(function() return HttpService:JSONDecode(s) end); if ok then return res end; return nil end
 
--- ====== Section "Manual" di Tab Mount
-local sec = UI.NewSection(UI.Tabs.Mount, "Manual")
+-- ===== Settings (persist: toggle + delay) =====
+local SETTINGS_FILE = "danuu_manual_settings.json"
+local Settings = {
+  loopDelay   = 3,     -- Delay antar waypoint
+  autoLoop    = false, -- Auto Loop ON/OFF
+  autoKill    = false, -- Auto respawn/kill di akhir siklus
+  moveDance   = true,  -- Gerak searah 3x @ 8 stud
+  autoRJ      = false, -- Auto Rejoin
+  autoRJDelay = 5,     -- Delay Auto Rejoin
+}
+local function saveSettings() safe_write(SETTINGS_FILE, enc(Settings)) end
+local function loadSettings()
+  local t = dec(safe_read(SETTINGS_FILE,""))
+  if typeof(t)=="table" then for k,v in pairs(t) do Settings[k]=v end end
+end
+loadSettings()
 
--- ===== Row helper (kiri label | kanan kontrol)
+-- ===== Row helper (kiri label | kanan kontrol) =====
 local function newRow(height)
   local row=Instance.new("Frame"); row.BackgroundColor3=Theme.card; row.Size=UDim2.new(1,-4,0,height or 54)
   row.Position=UDim2.fromOffset(2,0); row.Parent=sec
@@ -73,7 +86,7 @@ local function newRow(height)
   return row,left,right
 end
 
--- ===== Waypoints (persist per map)
+-- ===== Waypoints (persist per map) =====
 local WP_FILE = ("danuu_manual_wp_%s.json"):format(tostring(game.PlaceId))
 local waypoints = {}
 
@@ -94,7 +107,7 @@ local function loadWP()
   end
 end
 
--- keluar-masuk 3x @ 8 stud (searah kamera)
+-- dance 3x @ 8 stud (searah kamera)
 local function checkpointDance(center)
   local hrp = HRP(); if not hrp then return end
   local cam = workspace.CurrentCamera
@@ -108,7 +121,7 @@ local function checkpointDance(center)
   end
 end
 
--- ===== UI: List Waypoints
+-- ===== UI: List Waypoints =====
 do
   local title = Instance.new("TextLabel")
   title.BackgroundTransparency=1; title.TextXAlignment=Enum.TextXAlignment.Left
@@ -153,10 +166,9 @@ do
     end
   end
 
-  -- expose refresh function
   sec._refreshWP = refreshWP
 
-  -- tombol set/delete
+  -- tombol Set / Delete
   local _, l1, r1 = newRow(40); l1.Text = "Waypoints"
   local btnSet = Instance.new("TextButton"); btnSet.Size=UDim2.new(0,160,1,0); btnSet.AutoButtonColor=false
   btnSet.Text="Set Waypoint"; btnSet.Font=Enum.Font.GothamSemibold; btnSet.TextSize=14; btnSet.TextColor3=Theme.text
@@ -187,37 +199,20 @@ do
     if #waypoints>0 then table.remove(waypoints,#waypoints); refreshWP(); saveWP() end
   end)
 
-  -- load awal
   loadWP(); refreshWP()
 end
 
--- ===== Settings (persist semua toggle + delay)
-local SETTINGS_FILE = "danuu_manual_settings.json"
-local Settings = {
-  loopDelay   = 3,      -- Delay (detik) antar titik
-  autoLoop    = false,  -- Auto Loop ON/OFF
-  autoKill    = false,  -- Auto Respawn/kill ON/OFF (bunuh diri di akhir siklus)
-  moveDance   = true,   -- Gerak searah 3x @ 8 stud ON/OFF
-  autoRJ      = false,  -- Auto Rejoin ON/OFF
-  autoRJDelay = 5,      -- Delay Auto Rejoin
-}
-local function saveSettings()
-  safe_write(SETTINGS_FILE, enc(Settings))
-end
-local function loadSettings()
-  local t = dec(safe_read(SETTINGS_FILE,""))
-  if typeof(t)=="table" then
-    for k,v in pairs(t) do Settings[k]=v end
-  end
-end
-loadSettings()
-
--- ===== Row: [Delay] [Auto Respawn/kill ON/OFF]
+-- ===== Row: [Delay] [Auto Respawn/kill ON/OFF] =====
 local _, dLeft, dRight = newRow(46); dLeft.Text = "Delay"
 local delayBox = Instance.new("TextBox"); delayBox.Size=UDim2.new(0,140,1,0)
 delayBox.BackgroundColor3=Theme.card; delayBox.TextColor3=Theme.text; delayBox.Font=Enum.Font.Gotham; delayBox.TextSize=14
 delayBox.ClearTextOnFocus=false; delayBox.Text=tostring(Settings.loopDelay or 3); delayBox.TextXAlignment=Enum.TextXAlignment.Center
 corner(delayBox,8); stroke(delayBox,Theme.accA,1).Transparency=.5; delayBox.Parent=dRight
+delayBox.FocusLost:Connect(function()
+  local v=tonumber(delayBox.Text) or Settings.loopDelay
+  v = math.clamp(math.floor(v+0.5), 1, 60)
+  Settings.loopDelay = v; delayBox.Text=tostring(v); saveSettings()
+end)
 
 local killBtn = Instance.new("TextButton"); killBtn.Size=UDim2.new(0,200,1,0); killBtn.AutoButtonColor=false
 killBtn.Text="Auto respawn/kill: "..(Settings.autoKill and "ON" or "OFF")
@@ -229,13 +224,8 @@ killBtn.MouseButton1Click:Connect(function()
   killBtn.BackgroundColor3 = Settings.autoKill and Theme.accA or Theme.card
   saveSettings()
 end)
-delayBox.FocusLost:Connect(function()
-  local v=tonumber(delayBox.Text) or Settings.loopDelay
-  v = math.clamp(math.floor(v+0.5), 1, 60)
-  Settings.loopDelay = v; delayBox.Text=tostring(v); saveSettings()
-end)
 
--- ===== Row: [Gerak 3x/8stud ON/OFF] [Auto Rejoin ON/OFF] [Delay Auto Rejoin]
+-- ===== Row: [Gerak 3x/8stud] [Auto Rejoin] [Delay RJ] =====
 local _, gLeft, gRight = newRow(46); gLeft.Text = "Opsi"
 local danceBtn = Instance.new("TextButton"); danceBtn.Size=UDim2.new(0,200,1,0); danceBtn.AutoButtonColor=false
 danceBtn.Text="Gerak 3x/8stud: "..(Settings.moveDance and "ON" or "OFF")
@@ -257,16 +247,18 @@ local rjBox = Instance.new("TextBox"); rjBox.Size=UDim2.new(0,140,1,0)
 rjBox.BackgroundColor3=Theme.card; rjBox.TextColor3=Theme.text; rjBox.Font=Enum.Font.Gotham; rjBox.TextSize=14
 rjBox.ClearTextOnFocus=false; rjBox.Text=tostring(Settings.autoRJDelay or 5); rjBox.TextXAlignment=Enum.TextXAlignment.Center
 corner(rjBox,8); stroke(rjBox,Theme.accA,1).Transparency=.5; rjBox.Parent=gRight
+rjBox.FocusLost:Connect(function()
+  local v=tonumber(rjBox.Text) or Settings.autoRJDelay
+  v = math.clamp(math.floor(v+0.5), 2, 120)
+  Settings.autoRJDelay = v; rjBox.Text=tostring(v); saveSettings()
+end)
 
 -- Auto Rejoin logic
 local PlaceId, JobId = game.PlaceId, game.JobId
-local rjLoopOn=false
-local rjConn -- error listener
+local rjLoopOn, rjConn = false, nil
 local function doRJ()
   if #Players:GetPlayers() <= 1 then
-    LP:Kick("\nRejoining...")
-    task.wait()
-    TeleportService:Teleport(PlaceId, LP)
+    LP:Kick("\nRejoining..."); task.wait(); TeleportService:Teleport(PlaceId, LP)
   else
     TeleportService:TeleportToPlaceInstance(PlaceId, JobId, LP)
   end
@@ -285,10 +277,7 @@ local function startRJ()
     end
   end)
 end
-local function stopRJ()
-  rjLoopOn=false
-  if rjConn then rjConn:Disconnect(); rjConn=nil end
-end
+local function stopRJ() rjLoopOn=false; if rjConn then rjConn:Disconnect(); rjConn=nil end end
 
 rjBtn.MouseButton1Click:Connect(function()
   Settings.autoRJ = not Settings.autoRJ
@@ -297,24 +286,17 @@ rjBtn.MouseButton1Click:Connect(function()
   saveSettings()
   if Settings.autoRJ then startRJ() else stopRJ() end
 end)
-rjBox.FocusLost:Connect(function()
-  local v=tonumber(rjBox.Text) or Settings.autoRJDelay
-  v = math.clamp(math.floor(v+0.5), 2, 120)
-  Settings.autoRJDelay = v; rjBox.Text=tostring(v); saveSettings()
-end)
-
--- restore RJ state after re-exec
 if Settings.autoRJ then startRJ() end
 
--- ===== Row: [Auto Loop ON/OFF]
+-- ===== Row: [Auto Loop ON/OFF] =====
 local _, aLeft, aRight = newRow(46); aLeft.Text = "Auto loop"
 local loopBtn = Instance.new("TextButton"); loopBtn.Size=UDim2.new(0,180,1,0); loopBtn.AutoButtonColor=false
 loopBtn.Text="Auto loop: "..(Settings.autoLoop and "ON" or "OFF")
 loopBtn.Font=Enum.Font.GothamSemibold; loopBtn.TextSize=14; loopBtn.TextColor3=Theme.text
 loopBtn.BackgroundColor3=Settings.autoLoop and Theme.accA or Theme.card; corner(loopBtn,8); stroke(loopBtn,Theme.accA,1).Transparency=.45; loopBtn.Parent=aRight
 
--- ===== Main Auto Loop
-local looping = false
+-- ===== Main Auto Loop =====
+local looping=false
 local function setLoop(on)
   Settings.autoLoop = on and true or false
   loopBtn.Text = "Auto loop: "..(Settings.autoLoop and "ON" or "OFF")
@@ -339,12 +321,9 @@ local function setLoop(on)
           local t0=tick()
           while tick()-t0 < d do if not Settings.autoLoop then break end; task.wait(0.05) end
 
-          -- akhir siklus
-          if Settings.autoLoop and i==#waypoints then
-            if Settings.autoKill then
-              local hum=Hum(); if hum then hum.Health = 0 end
-              LP.CharacterAdded:Wait(); task.wait(0.8)
-            end
+          if Settings.autoLoop and i==#waypoints and Settings.autoKill then
+            local hum=Hum(); if hum then hum.Health = 0 end
+            LP.CharacterAdded:Wait(); task.wait(0.8)
           end
         end
         ::CONT::
@@ -354,13 +333,11 @@ local function setLoop(on)
     end)
   end
 end
-
 loopBtn.MouseButton1Click:Connect(function() setLoop(not Settings.autoLoop) end)
 
--- ===== apply persisted state ke UI (yang belum diaplikasi)
+-- apply nilai yang tersimpan
 delayBox.Text = tostring(Settings.loopDelay or 3)
 rjBox.Text    = tostring(Settings.autoRJDelay or 5)
--- jika autoLoop ON sebelumnya, start lagi
 if Settings.autoLoop then setLoop(true) end
 
 print("[danuu • Manual] loaded ✓")
