@@ -1,5 +1,5 @@
 -- src/home.lua
--- Home card — semua rata kiri + Total Playtime Today (timer berjalan)
+-- Home card — semua rata kiri + Total Playtime Today
 
 local UI = _G.danuu_hub_ui
 if not UI or not UI.Tabs or not UI.Tabs.Menu then return end
@@ -11,7 +11,7 @@ local TweenService       = game:GetService("TweenService")
 
 local LP = Players.LocalPlayer
 
--- === Theme (selaras hub)
+-- Theme selaras hub
 local Theme = {
   bg    = Color3.fromRGB(24,20,40),
   card  = Color3.fromRGB(44,36,72),
@@ -24,13 +24,13 @@ local Theme = {
 local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 10); c.Parent=p; return c end
 local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.6; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 
--- === Section "Home"
+-- Section Home
 local inner = UI.NewSection(UI.Tabs.Menu, "Home")
 
--- === Kartu utama
+-- Kartu utama
 local card = Instance.new("Frame")
 card.BackgroundColor3 = Theme.bg
-card.Size = UDim2.new(1, 0, 0, 240)  -- tinggi dilebihin biar aman
+card.Size = UDim2.new(1, 0, 0, 240)
 card.Parent = inner
 corner(card, 10); stroke(card, Theme.accA, 1).Transparency = .5
 local pad = Instance.new("UIPadding", card)
@@ -42,9 +42,11 @@ row.FillDirection = Enum.FillDirection.Horizontal
 row.Padding = UDim.new(0, 12)
 row.VerticalAlignment = Enum.VerticalAlignment.Top
 row.HorizontalAlignment = Enum.HorizontalAlignment.Left
+row.SortOrder = Enum.SortOrder.LayoutOrder
 
--- === Avatar 120x120
+-- Avatar kolom kiri
 local avatarWrap = Instance.new("Frame")
+avatarWrap.LayoutOrder = 1
 avatarWrap.BackgroundTransparency = 1
 avatarWrap.Size = UDim2.new(0, 120, 1, 0)
 avatarWrap.Parent = card
@@ -61,7 +63,7 @@ pcall(function()
   avatar.Image = t
 end)
 
--- === Total Playtime Today (di bawah avatar)
+-- Total Playtime Today (di bawah avatar)
 local playBox = Instance.new("Frame")
 playBox.BackgroundColor3 = Theme.card
 playBox.Size = UDim2.new(0, 120, 0, 80)
@@ -101,24 +103,26 @@ task.spawn(function()
   end
 end)
 
--- === Panel info (rata kiri)
+-- Panel info (kanan)
 local info = Instance.new("Frame")
+info.LayoutOrder = 2
 info.BackgroundTransparency = 1
 info.Size = UDim2.new(1, -132, 1, 0)  -- sisakan lebar avatar
 info.Parent = card
+
 local infoList = Instance.new("UIListLayout", info)
 infoList.Padding = UDim.new(0, 8)
 infoList.HorizontalAlignment = Enum.HorizontalAlignment.Left
 infoList.VerticalAlignment = Enum.VerticalAlignment.Top
+infoList.SortOrder = Enum.SortOrder.LayoutOrder
 
--- === Row helper: [Key 110px] [Value (marquee jika overflow)]
+-- Row helper: [Key 120px] [Value] — paksa urutan pakai LayoutOrder
 local function keyValueRow(keyText)
   local r = Instance.new("Frame")
   r.BackgroundColor3 = Theme.card
   r.Size = UDim2.new(1, 0, 0, 50)
   r.Parent = info
   corner(r, 10); stroke(r, Theme.accA, 1).Transparency = .65
-
   local rp = Instance.new("UIPadding", r)
   rp.PaddingLeft, rp.PaddingRight = UDim.new(0, 12), UDim.new(0, 12)
 
@@ -127,29 +131,30 @@ local function keyValueRow(keyText)
   h.Padding = UDim.new(0, 8)
   h.HorizontalAlignment = Enum.HorizontalAlignment.Left
   h.VerticalAlignment = Enum.VerticalAlignment.Center
+  h.SortOrder = Enum.SortOrder.LayoutOrder  -- << fix utama
 
   local key = Instance.new("TextLabel")
+  key.LayoutOrder = 1                       -- << key selalu kiri
   key.BackgroundTransparency = 1
-  key.Size = UDim2.new(0, 110, 1, 0)
+  key.Size = UDim2.new(0, 120, 1, 0)
   key.Font = Enum.Font.GothamSemibold
   key.TextSize = 16
   key.TextXAlignment = Enum.TextXAlignment.Left
   key.TextColor3 = Theme.text
   key.Text = keyText
-  key.LayoutOrder = 1        -- <== paksa tampil di kiri
   key.Parent = r
 
   local clip = Instance.new("Frame")
+  clip.LayoutOrder = 2                      -- << value selalu kanan
   clip.BackgroundTransparency = 1
   clip.ClipsDescendants = true
-  clip.Size = UDim2.new(1, -(110+8), 1, 0)
-  clip.LayoutOrder = 2        -- <== value selalu di kanan
+  clip.Size = UDim2.new(1, -(120+8), 1, 0)
   clip.Parent = r
 
   return r, clip
 end
 
--- === Marquee (nunggu ukuran siap supaya gak kebalik)
+-- Marquee (nunggu ukuran siap)
 local function setMarquee(parentClip, text, opts)
   opts = opts or {}
   local font  = opts.Font or Enum.Font.Gotham
@@ -158,13 +163,11 @@ local function setMarquee(parentClip, text, opts)
   local gap   = opts.Gap or 40
   local speed = opts.Speed or 60
 
-  -- tunggu clip punya lebar valid
   if parentClip.AbsoluteSize.X <= 1 then
-    repeat task.wait() until parentClip.AbsoluteSize.X > 1 or not parentClip.Parent
-    if not parentClip.Parent then return end
+    repeat task.wait() until not parentClip or not parentClip.Parent or parentClip.AbsoluteSize.X > 1
+    if not parentClip or not parentClip.Parent then return end
   end
 
-  -- ukur text
   local meas = Instance.new("TextLabel")
   meas.BackgroundTransparency = 1
   meas.Visible = false
@@ -218,13 +221,12 @@ local function setMarquee(parentClip, text, opts)
   end)
 end
 
--- === Ambil data
+-- Data
 local mapName = "Unknown Place"
 pcall(function()
   local info = MarketplaceService:GetProductInfo(game.PlaceId)
   if info and info.Name then mapName = info.Name end
 end)
-
 local username   = LP.DisplayName or LP.Name
 local accountAge = ("%d days"):format(LP.AccountAge or 0)
 
@@ -237,7 +239,7 @@ pcall(function()
   end
 end)
 
--- === Isi rows (semua rata kiri)
+-- Rows (kiri → kanan)
 do local _, clip = keyValueRow("Map:");         setMarquee(clip, mapName,   {TextSize=16}) end
 do local _, clip = keyValueRow("Username:");    setMarquee(clip, username,  {TextSize=16}) end
 do local _, clip = keyValueRow("Account Age:"); setMarquee(clip, accountAge,{TextSize=16}) end
