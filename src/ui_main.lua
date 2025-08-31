@@ -204,7 +204,7 @@ end
 -- ===== Section untuk semua Mount + SIMPAN REFERENSI
 local MountSections = {}
 do
-  local names={"Mount Atin","Mount Daun","Mount Sumbing","Mount Sibuatan","Mount Antarctica"}
+  local names={"Mount Atin","Mount Daun","Mount Sumbing","Mount Sibuatan","Mount Antarctica","Manual"}
   for _,n in ipairs(names) do
     MountSections[n] = section(TabMount.Page, n)  -- simpan inner frame
   end
