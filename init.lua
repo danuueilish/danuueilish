@@ -14,6 +14,7 @@ pcall(function() loadstring(game:HttpGet(base.."sticky_notes.lua"))() end)
 pcall(function() loadstring(game:HttpGet(base.."rejoin.lua"))() end)
 pcall(function() loadstring(game:HttpGet(base.."antilag.lua"))() end)
 pcall(function() loadstring(game:HttpGet(base.."mount_atin.lua"))() end)
+pcall(function() loadstring(game:HttpGet(base.."mount_manual.lua"))() end)
 pcall(function() loadstring(game:HttpGet(base.."local_player.lua"))() end)
 
 print("[danuu-hub] semua modul sudah di-load ✓")
