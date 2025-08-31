@@ -8,8 +8,8 @@ if not UI or not UI.MountSections or not UI.MountSections["Manual"] then
     return
 end
 
-local container = UI.MountSections["Manual"]   -- parent section
--- lalu bangun UI “Manual” kamu di sini…
+-- Pakai section yang sudah dibuat oleh ui_main.lua
+local sec = UI.MountSections["Manual"]
 
 -- ===== Services
 local Players            = game:GetService("Players")
