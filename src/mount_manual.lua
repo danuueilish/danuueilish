@@ -214,11 +214,23 @@ end
 loadWP(); refreshWP()
 
 ----------------------------------------------------------------
--- SUB 2: Options (Delay, AutoKill, Dance, AutoRJ + Delay)
+-- SUB: Options (Delay, AutoKill, Dance, AutoRJ + Delay, AutoLoop)
 ----------------------------------------------------------------
 local optInner = newSub("Options")
 
--- row: Delay (box kecil) + Auto respawn/kill toggle
+-- ====== SETTINGS (persist) ======
+local SETTINGS_FILE = "danuu_manual_settings.json"
+local Settings = dec(sread(SETTINGS_FILE,"")) or {}
+if type(Settings)~="table" then Settings={} end
+Settings.loopDelay   = tonumber(Settings.loopDelay)   or 3
+Settings.autoKill    = Settings.autoKill and true or false
+Settings.moveDance   = (Settings.moveDance ~= false) -- default ON
+Settings.autoRJ      = Settings.autoRJ and true or false
+Settings.autoRJDelay = tonumber(Settings.autoRJDelay) or 5
+Settings.autoLoop    = Settings.autoLoop and true or false
+local function saveS() swrite(SETTINGS_FILE, enc(Settings)) end
+
+-- ===== Row 1: Delay + Auto respawn/kill =====
 do
   local row = Instance.new("Frame"); row.BackgroundTransparency=1; row.Size=UDim2.new(1,0,0,34); row.Parent=optInner
   local lay = Instance.new("UIListLayout", row); lay.FillDirection=Enum.FillDirection.Horizontal; lay.Padding=UDim.new(0,8)
@@ -227,34 +239,21 @@ do
   delayBox.Size=UDim2.new(0,80,1,0)
   delayBox.BackgroundColor3=Theme.card; delayBox.TextColor3=Theme.text
   delayBox.Font=Enum.Font.Gotham; delayBox.TextSize=14; delayBox.ClearTextOnFocus=false; delayBox.TextXAlignment=Enum.TextXAlignment.Center
-  corner(delayBox,8); stroke(delayBox,Theme.accA,1).Transparency=.5; delayBox.Parent=row
-
-  local killBtn = Instance.new("TextButton")
-  killBtn.AutoButtonColor=false; killBtn.Text="Auto respawn/kill: OFF"
-  killBtn.Font=Enum.Font.GothamSemibold; killBtn.TextSize=14; killBtn.TextColor3=Theme.text
-  killBtn.BackgroundColor3=Theme.card; killBtn.Size=UDim2.new(0,200,1,0); killBtn.Parent=row
-  corner(killBtn,8); stroke(killBtn,Theme.accA,1).Transparency=.45
-
-  -- Persist settings
-  local SETTINGS_FILE = "danuu_manual_settings.json"
-  local Settings = dec(sread(SETTINGS_FILE,"")) or {}
-  if type(Settings)~="table" then Settings={} end
-  Settings.loopDelay = tonumber(Settings.loopDelay) or 3
-  Settings.autoKill  = Settings.autoKill and true or false
-  Settings.moveDance = (Settings.moveDance~=false) -- default true
-  Settings.autoRJ    = Settings.autoRJ and true or false
-  Settings.autoRJDelay = tonumber(Settings.autoRJDelay) or 5
-  local function saveS() swrite(SETTINGS_FILE, enc(Settings)) end
-
   delayBox.Text = tostring(Settings.loopDelay)
-  killBtn.Text  = "Auto respawn/kill: "..(Settings.autoKill and "ON" or "OFF")
-  killBtn.BackgroundColor3 = Settings.autoKill and Theme.accA or Theme.card
-
+  corner(delayBox,8); stroke(delayBox,Theme.accA,1).Transparency=.5; delayBox.Parent=row
   delayBox.FocusLost:Connect(function()
     local v = tonumber(delayBox.Text) or Settings.loopDelay
     v = math.clamp(math.floor(v+0.5),1,60)
     Settings.loopDelay=v; delayBox.Text=tostring(v); saveS()
   end)
+
+  local killBtn = Instance.new("TextButton")
+  killBtn.AutoButtonColor=false
+  killBtn.Text="Auto respawn/kill: "..(Settings.autoKill and "ON" or "OFF")
+  killBtn.Font=Enum.Font.GothamSemibold; killBtn.TextSize=14; killBtn.TextColor3=Theme.text
+  killBtn.BackgroundColor3=Settings.autoKill and Theme.accA or Theme.card
+  killBtn.Size=UDim2.new(0,200,1,0); killBtn.Parent=row
+  corner(killBtn,8); stroke(killBtn,Theme.accA,1).Transparency=.45
   killBtn.MouseButton1Click:Connect(function()
     Settings.autoKill = not Settings.autoKill
     killBtn.Text  = "Auto respawn/kill: "..(Settings.autoKill and "ON" or "OFF")
@@ -262,14 +261,46 @@ do
     saveS()
   end)
 
-  -- ===== row: Dance + Auto RJ + Delay RJ
+  -- simpan buat dipakai Auto Loop
+  optInner._delayBox = delayBox
+end
+
+-- ===== Row 2: 3x/8stud + Auto Rejoin + Delay RJ =====
+local rjLoopOn, rjConn = false, nil
+local function doRJ()
+  local PlaceId, JobId = game.PlaceId, game.JobId
+  if #Players:GetPlayers() <= 1 then
+    LP:Kick("\nRejoining..."); task.wait(); TeleportService:Teleport(PlaceId, LP)
+  else
+    TeleportService:TeleportToPlaceInstance(PlaceId, JobId, LP)
+  end
+end
+local function startRJ(rjBox)
+  if rjConn then rjConn:Disconnect() end
+  rjConn = GuiService.ErrorMessageChanged:Connect(function() task.defer(doRJ) end)
+  rjLoopOn = true
+  task.spawn(function()
+    while rjLoopOn do
+      local d = tonumber(rjBox.Text) or Settings.autoRJDelay or 5
+      d = math.clamp(math.floor(d+0.5),2,120)
+      for _=1,d*10 do if not rjLoopOn then break end; task.wait(0.1) end
+      if not rjLoopOn then break end
+      doRJ()
+    end
+  end)
+end
+local function stopRJ() rjLoopOn=false; if rjConn then rjConn:Disconnect(); rjConn=nil end end
+
+do
   local row2 = Instance.new("Frame"); row2.BackgroundTransparency=1; row2.Size=UDim2.new(1,0,0,34); row2.Parent=optInner
   local lay2 = Instance.new("UIListLayout", row2); lay2.FillDirection=Enum.FillDirection.Horizontal; lay2.Padding=UDim.new(0,8)
 
   local danceBtn = Instance.new("TextButton")
-  danceBtn.AutoButtonColor=false; danceBtn.Text="3x/8stud: "..(Settings.moveDance and "ON" or "OFF")
+  danceBtn.AutoButtonColor=false
+  danceBtn.Text="3x/8stud: "..(Settings.moveDance and "ON" or "OFF")
   danceBtn.Font=Enum.Font.GothamSemibold; danceBtn.TextSize=14; danceBtn.TextColor3=Theme.text
-  danceBtn.BackgroundColor3=Settings.moveDance and Theme.accA or Theme.card; danceBtn.Size=UDim2.new(0,140,1,0); danceBtn.Parent=row2
+  danceBtn.BackgroundColor3=Settings.moveDance and Theme.accA or Theme.card
+  danceBtn.Size=UDim2.new(0,140,1,0); danceBtn.Parent=row2
   corner(danceBtn,8); stroke(danceBtn,Theme.accA,1).Transparency=.45
   danceBtn.MouseButton1Click:Connect(function()
     Settings.moveDance = not Settings.moveDance
@@ -279,63 +310,87 @@ do
   end)
 
   local rjBtn = Instance.new("TextButton")
-  rjBtn.AutoButtonColor=false; rjBtn.Text="Auto rejoin: "..(Settings.autoRJ and "ON" or "OFF")
+  rjBtn.AutoButtonColor=false
+  rjBtn.Text="Auto rejoin: "..(Settings.autoRJ and "ON" or "OFF")
   rjBtn.Font=Enum.Font.GothamSemibold; rjBtn.TextSize=14; rjBtn.TextColor3=Theme.text
-  rjBtn.BackgroundColor3=Settings.autoRJ and Theme.accA or Theme.card; rjBtn.Size=UDim2.new(0,160,1,0); rjBtn.Parent=row2
+  rjBtn.BackgroundColor3=Settings.autoRJ and Theme.accA or Theme.card
+  rjBtn.Size=UDim2.new(0,160,1,0); rjBtn.Parent=row2
   corner(rjBtn,8); stroke(rjBtn,Theme.accA,1).Transparency=.45
 
   local rjBox = Instance.new("TextBox")
   rjBox.Size=UDim2.new(0,80,1,0)
-  rjBox.BackgroundColor3=Theme.card; rjBox.TextColor3=Theme.text; rjBox.Font=Enum.Font.Gotham; rjBox.TextSize=14
-  rjBox.ClearTextOnFocus=false; rjBox.Text=tostring(Settings.autoRJDelay); rjBox.TextXAlignment=Enum.TextXAlignment.Center
+  rjBox.BackgroundColor3=Theme.card; rjBox.TextColor3=Theme.text
+  rjBox.Font=Enum.Font.Gotham; rjBox.TextSize=14; rjBox.ClearTextOnFocus=false
+  rjBox.Text = tostring(Settings.autoRJDelay); rjBox.TextXAlignment=Enum.TextXAlignment.Center
   corner(rjBox,8); stroke(rjBox,Theme.accA,1).Transparency=.5; rjBox.Parent=row2
   rjBox.FocusLost:Connect(function()
-    local v = tonumber(rjBox.Text) or Settings.autoRJDelay
+    local v=tonumber(rjBox.Text) or Settings.autoRJDelay
     v = math.clamp(math.floor(v+0.5),2,120)
     Settings.autoRJDelay=v; rjBox.Text=tostring(v); saveS()
   end)
-
-  -- Auto RJ loop + error hook
-  local PlaceId, JobId = game.PlaceId, game.JobId
-  local rjOn, rjConn = false, nil
-  local function doRJ()
-    if #Players:GetPlayers() <= 1 then
-      LP:Kick("\nRejoining..."); task.wait(); TeleportService:Teleport(PlaceId, LP)
-    else
-      TeleportService:TeleportToPlaceInstance(PlaceId, JobId, LP)
-    end
-  end
-  local function startRJ()
-    if rjConn then rjConn:Disconnect() end
-    rjConn = GuiService.ErrorMessageChanged:Connect(function() task.defer(doRJ) end)
-    rjOn = true
-    task.spawn(function()
-      while rjOn do
-        local d = tonumber(rjBox.Text) or Settings.autoRJDelay
-        d = math.clamp(math.floor(d+0.5),2,120)
-        for _=1,d*10 do if not rjOn then break end; task.wait(0.1) end
-        if not rjOn then break end
-        doRJ()
-      end
-    end)
-  end
-  local function stopRJ() rjOn=false; if rjConn then rjConn:Disconnect(); rjConn=nil end end
 
   rjBtn.MouseButton1Click:Connect(function()
     Settings.autoRJ = not Settings.autoRJ
     rjBtn.Text="Auto rejoin: "..(Settings.autoRJ and "ON" or "OFF")
     rjBtn.BackgroundColor3 = Settings.autoRJ and Theme.accA or Theme.card
     saveS()
-    if Settings.autoRJ then startRJ() else stopRJ() end
+    if Settings.autoRJ then startRJ(rjBox) else stopRJ() end
   end)
-  if Settings.autoRJ then startRJ() end
-
-  -- expose state for Auto Loop
-  optInner._settings = Settings
-  optInner._saveS    = saveS
-  optInner._delayBox = delayBox
+  if Settings.autoRJ then startRJ(rjBox) end
 end
 
+-- ===== Row 3: Auto Loop (TAMPIL di Options) =====
+local looping=false
+local function setLoop(on)
+  Settings.autoLoop = on and true or false
+  loopBtn.Text = "Auto loop: "..(Settings.autoLoop and "ON" or "OFF")
+  loopBtn.BackgroundColor3 = Settings.autoLoop and Theme.accA or Theme.card
+  saveS()
+
+  if Settings.autoLoop and not looping then
+    looping=true
+    task.spawn(function()
+      while Settings.autoLoop do
+        if #waypoints==0 then task.wait(0.15) else
+          local d = tonumber(optInner._delayBox.Text) or Settings.loopDelay or 3
+          d = math.clamp(math.floor(d+0.5),1,60)
+          for i=1,#waypoints do
+            if not Settings.autoLoop then break end
+            local pos = waypoints[i]
+            safeTP(pos)
+            if Settings.moveDance then dance3(pos) end
+            local t0=tick()
+            while Settings.autoLoop and tick()-t0 < d do task.wait(0.05) end
+            if Settings.autoLoop and i==#waypoints and Settings.autoKill then
+              local hum = select(2,HRP()); if hum then hum.Health=0 end
+              LP.CharacterAdded:Wait(); task.wait(0.8)
+            end
+          end
+        end
+        task.wait(0.05)
+      end
+      looping=false
+    end)
+  end
+end
+
+local row3 = Instance.new("Frame"); row3.BackgroundTransparency=1; row3.Size=UDim2.new(1,0,0,34); row3.Parent=optInner
+local r3 = Instance.new("UIListLayout", row3); r3.FillDirection=Enum.FillDirection.Horizontal; r3.Padding=UDim.new(0,8)
+
+local cap = Instance.new("TextLabel") -- label kecil kiri: "Auto Loop"
+cap.BackgroundTransparency=1; cap.TextColor3=Theme.text2; cap.Font=Enum.Font.Gotham; cap.TextSize=14
+cap.Text = "Auto Loop"; cap.Size = UDim2.new(0,120,1,0); cap.Parent=row3
+
+loopBtn = Instance.new("TextButton")
+loopBtn.AutoButtonColor=false; loopBtn.Text="Auto loop: "..(Settings.autoLoop and "ON" or "OFF")
+loopBtn.Font=Enum.Font.GothamSemibold; loopBtn.TextSize=14; loopBtn.TextColor3=Theme.text
+loopBtn.BackgroundColor3=Settings.autoLoop and Theme.accA or Theme.card
+loopBtn.Size=UDim2.new(0,160,1,0); loopBtn.Parent=row3
+corner(loopBtn,8); stroke(loopBtn,Theme.accA,1).Transparency=.45
+loopBtn.MouseButton1Click:Connect(function() setLoop(not Settings.autoLoop) end)
+
+-- apply persisted
+if Settings.autoLoop then setLoop(true) end
 ----------------------------------------------------------------
 -- SUB 3: Auto Loop
 ----------------------------------------------------------------
