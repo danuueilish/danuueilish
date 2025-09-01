@@ -1,19 +1,18 @@
 -- src/mount_manual.lua
--- Manual: Waypoints + Auto Loop + Dance 3x/8 + Auto Respawn + Auto Rejoin (compact, FIX parent)
+-- Manual: Waypoints + Auto Loop + 3x/8stud + Auto Respawn + Auto Rejoin (compact, fixed LayoutOrder)
 
------------------- grab container (inner of card "Manual") ------------------
+------------------ container ------------------
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Manual"] then
-    warn("[Manual] MountSections['Manual'] tidak ditemukan. Pastikan ui_main.lua membuatnya.")
+    warn("[Manual] container 'Manual' tidak ditemukan.")
     return
 end
-local sec = UI.MountSections["Manual"]  -- <— INI yang dipakai utk semua parent
+local sec = UI.MountSections["Manual"]  -- inner frame dari kartu "Manual"
 
------------------- services & small helpers ------------------
-local Players = game:GetService("Players")
-local GuiService = game:GetService("GuiService")
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
+------------------ services & tiny utils ------------------
+local Players, GuiService, TeleportService, HttpService =
+      game:GetService("Players"), game:GetService("GuiService"),
+      game:GetService("TeleportService"), game:GetService("HttpService")
 local LP = Players.LocalPlayer
 
 local Theme = {
@@ -27,41 +26,16 @@ local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Colo
 local function HRP() local ch=LP.Character or LP.CharacterAdded:Wait(); return ch:FindFirstChild("HumanoidRootPart") end
 local function Hum() local ch=LP.Character or LP.CharacterAdded:Wait(); return ch:FindFirstChildOfClass("Humanoid") end
 
--- executor file helpers
+-- file helpers
 local CAN_FS = (writefile and readfile and isfile) and true or false
-local function safe_read(path, fallback) if not CAN_FS or not isfile(path) then return fallback end local ok,d=pcall(readfile,path); return ok and d or fallback end
-local function safe_write(path, content) if not CAN_FS then return false end pcall(writefile,path,content); return true end
+local function safe_read(p,f) if not CAN_FS or not isfile(p) then return f end local ok,d=pcall(readfile,p) return ok and d or f end
+local function safe_write(p,c) if not CAN_FS then return false end pcall(writefile,p,c) return true end
 local function enc(t) return HttpService:JSONEncode(t) end
-local function dec(s) local ok,res=pcall(function() return HttpService:JSONDecode(s) end); return ok and res or nil end
+local function dec(s) local ok,r=pcall(function() return HttpService:JSONDecode(s) end) return ok and r or nil end
 
------------------- ROW helper (simple/compact) ------------------
-local function newRow(height)
-  local row=Instance.new("Frame"); row.BackgroundColor3=Theme.card; row.Size=UDim2.new(1,-4,0,height or 36)
-  row.Position=UDim2.fromOffset(2,0); row.Parent=sec
-  corner(row,10); stroke(row,Theme.accA,1).Transparency=.55
-  local pad=Instance.new("UIPadding",row); pad.PaddingLeft=UDim.new(0,10); pad.PaddingRight=UDim.new(0,10); pad.PaddingTop=UDim.new(0,6); pad.PaddingBottom=UDim.new(0,6)
-
-  local left=Instance.new("TextLabel"); left.BackgroundTransparency=1; left.Size=UDim2.new(0,140,1,0)
-  left.Font=Enum.Font.GothamSemibold; left.TextSize=14; left.TextXAlignment=Enum.TextXAlignment.Left; left.TextColor3=Theme.text; left.Parent=row
-
-  local right=Instance.new("Frame"); right.BackgroundTransparency=1; right.Size=UDim2.new(1,-(140+20),1,0); right.Parent=row
-  local rlay=Instance.new("UIListLayout",right); rlay.FillDirection=Enum.FillDirection.Horizontal; rlay.Padding=UDim.new(0,8)
-  rlay.VerticalAlignment=Enum.VerticalAlignment.Center; rlay.HorizontalAlignment=Enum.HorizontalAlignment.Right
-
-  return row,left,right
-end
-
------------------- SMOKE TEST (harus kelihatan) ------------------
-do
-  local _, L, R = newRow(36)
-  L.Text = "Test"
-  local ping = Instance.new("TextButton"); ping.Size=UDim2.new(0,100,1,0); ping.Text="Ping"
-  ping.Font=Enum.Font.GothamSemibold; ping.TextSize=14; ping.TextColor3=Theme.text
-  ping.BackgroundColor3=Theme.accA; ping.AutoButtonColor=false; corner(ping,8); stroke(ping,Theme.accB,1).Transparency=.35
-  ping.Parent = R
-  ping.MouseButton1Click:Connect(function() ping.Text="OK ✓"; task.delay(0.8,function() ping.Text="Ping" end) end)
-end
--- Kalau tombol "Ping" muncul dan bisa berubah jadi "OK ✓", artinya parent sudah BENAR.
+------------------ LayoutOrder helper ------------------
+local _order = 0
+local function nextOrder(gui) _order += 1; gui.LayoutOrder = _order end
 
 ------------------ SETTINGS (persist) ------------------
 local SETTINGS_FILE = "danuu_manual_settings.json"
@@ -80,16 +54,33 @@ local function dance(center)
   local hrp=HRP(); if not hrp then return end
   local dir=(workspace.CurrentCamera and workspace.CurrentCamera.CFrame.LookVector or hrp.CFrame.LookVector)
   dir=Vector3.new(dir.X,0,dir.Z); if dir.Magnitude<0.1 then dir=Vector3.new(1,0,0) end; dir=dir.Unit
-  for _=1,3 do hrp.CFrame=CFrame.new(center+dir*8); task.wait(0.1); hrp.CFrame=CFrame.new(center-dir*8); task.wait(0.1); hrp.CFrame=CFrame.new(center); task.wait(0.1) end
+  for _=1,3 do
+    hrp.CFrame=CFrame.new(center+dir*8); task.wait(0.1)
+    hrp.CFrame=CFrame.new(center-dir*8); task.wait(0.1)
+    hrp.CFrame=CFrame.new(center);       task.wait(0.1)
+  end
 end
 
------------------- UI: LIST WAYPOINTS (ringkas) ------------------
+------------------ ROW helper ------------------
+local function newRow(h)
+  local row=Instance.new("Frame")
+  row.BackgroundColor3=Theme.card; row.Size=UDim2.new(1,-4,0,h or 36); row.Position=UDim2.fromOffset(2,0); row.Parent=sec
+  nextOrder(row); corner(row,10); stroke(row,Theme.accA,1).Transparency=.55
+  local pad=Instance.new("UIPadding",row); pad.PaddingLeft=UDim.new(0,10); pad.PaddingRight=UDim.new(0,10); pad.PaddingTop=UDim.new(0,6); pad.PaddingBottom=UDim.new(0,6)
+  local left=Instance.new("TextLabel"); left.BackgroundTransparency=1; left.Size=UDim2.new(0,140,1,0); left.Font=Enum.Font.GothamSemibold; left.TextSize=14; left.TextXAlignment=Enum.TextXAlignment.Left; left.TextColor3=Theme.text; left.Parent=row
+  local right=Instance.new("Frame"); right.BackgroundTransparency=1; right.Size=UDim2.new(1,-(140+20),1,0); right.Parent=row
+  local rlay=Instance.new("UIListLayout",right); rlay.FillDirection=Enum.FillDirection.Horizontal; rlay.Padding=UDim.new(0,8); rlay.VerticalAlignment=Enum.VerticalAlignment.Center; rlay.HorizontalAlignment=Enum.HorizontalAlignment.Right
+  return row,left,right
+end
+
+------------------ LIST WAYPOINTS (compact 96px) ------------------
 do
   local title=Instance.new("TextLabel"); title.BackgroundTransparency=1; title.TextXAlignment=Enum.TextXAlignment.Left
   title.Text="List Waypoints"; title.Font=Enum.Font.GothamBlack; title.TextSize=15; title.TextColor3=Theme.text; title.Size=UDim2.new(1,0,0,20); title.Parent=sec
+  nextOrder(title)
 
   local card=Instance.new("Frame"); card.BackgroundColor3=Theme.bg; card.Size=UDim2.new(1,-4,0,96); card.Position=UDim2.fromOffset(2,0); card.Parent=sec
-  corner(card,10); stroke(card,Theme.accA,1).Transparency=.7
+  nextOrder(card); corner(card,10); stroke(card,Theme.accA,1).Transparency=.7
   local pad=Instance.new("UIPadding",card); pad.PaddingLeft=UDim.new(0,8); pad.PaddingRight=UDim.new(0,8); pad.PaddingTop=UDim.new(0,6); pad.PaddingBottom=UDim.new(0,6)
 
   local sc=Instance.new("ScrollingFrame"); sc.BackgroundTransparency=1; sc.Size=UDim2.fromScale(1,1); sc.ScrollBarThickness=6; sc.CanvasSize=UDim2.new(0,0,0,0); sc.Parent=card
@@ -114,7 +105,6 @@ do
       del.MouseButton1Click:Connect(function() table.remove(waypoints,i); refresh(); saveWP() end)
     end
   end
-
   sec._refreshWP = refresh
 
   local _, l1, r1 = newRow(34); l1.Text="Waypoints"
@@ -123,8 +113,8 @@ do
   local btnDel=Instance.new("TextButton"); btnDel.Size=UDim2.new(0,120,1,0); btnDel.Text="Delete Last"; btnDel.Font=Enum.Font.GothamSemibold; btnDel.TextSize=13; btnDel.TextColor3=Theme.text
   btnDel.BackgroundColor3=Theme.card; btnDel.AutoButtonColor=false; corner(btnDel,8); stroke(btnDel,Theme.accA,1).Transparency=.5; btnDel.Parent=r1
 
-  local lastPos,lastT=nil,0
-  local function okInsert(p) if not lastPos then return true end; if (p-lastPos).Magnitude>=2 then return true end; return (tick()-lastT)>0.25 end
+  local lastPos,lastT
+  local function okInsert(p) if not lastPos then return true end; if (p-lastPos).Magnitude>=2 then return true end; return (tick()-(lastT or 0))>0.25 end
   btnSet.MouseButton1Click:Connect(function() local h=HRP(); if not h then return end; local p=h.Position; if okInsert(p) then table.insert(waypoints,p); lastPos,lastT=p,tick(); refresh(); saveWP() end end)
   btnDel.MouseButton1Click:Connect(function() if #waypoints>0 then table.remove(waypoints,#waypoints); refresh(); saveWP() end end)
 
@@ -161,10 +151,31 @@ rjBox.FocusLost:Connect(function() local v=tonumber(rjBox.Text) or Settings.auto
 
 local PlaceId, JobId = game.PlaceId, game.JobId
 local rjLoopOn, rjConn = false, nil
-local function doRJ() if #Players:GetPlayers()<=1 then LP:Kick("\nRejoining..."); task.wait(); TeleportService:Teleport(PlaceId,LP) else TeleportService:TeleportToPlaceInstance(PlaceId,JobId,LP) end end
-local function startRJ() if rjConn then rjConn:Disconnect() end; rjConn=GuiService.ErrorMessageChanged:Connect(function() doRJ() end); rjLoopOn=true; task.spawn(function() while rjLoopOn do local d=math.clamp(math.floor((tonumber(rjBox.Text) or Settings.autoRJDelay)+0.5),2,120) for _=1,d*10 do if not rjLoopOn then break end; task.wait(0.1) end if not rjLoopOn then break end; doRJ() end end) end
+local function doRJ()
+  if #Players:GetPlayers()<=1 then LP:Kick("\nRejoining..."); task.wait(); TeleportService:Teleport(PlaceId,LP)
+  else TeleportService:TeleportToPlaceInstance(PlaceId,JobId,LP) end
+end
+local function startRJ()
+  if rjConn then rjConn:Disconnect() end
+  rjConn = GuiService.ErrorMessageChanged:Connect(function() doRJ() end)
+  rjLoopOn = true
+  task.spawn(function()
+    while rjLoopOn do
+      local d = math.clamp(math.floor(((tonumber(rjBox.Text) or Settings.autoRJDelay))+0.5),2,120)
+      for _=1,d*10 do if not rjLoopOn then break end; task.wait(0.1) end
+      if not rjLoopOn then break end
+      doRJ()
+    end
+  end)
+end
 local function stopRJ() rjLoopOn=false; if rjConn then rjConn:Disconnect(); rjConn=nil end end
-rjBtn.MouseButton1Click:Connect(function() Settings.autoRJ=not Settings.autoRJ; rjBtn.Text="Auto rejoin: "..(Settings.autoRJ and "ON" or "OFF"); rjBtn.BackgroundColor3=Settings.autoRJ and Theme.accA or Theme.card; saveSettings(); if Settings.autoRJ then startRJ() else stopRJ() end end)
+rjBtn.MouseButton1Click:Connect(function()
+  Settings.autoRJ=not Settings.autoRJ
+  rjBtn.Text="Auto rejoin: "..(Settings.autoRJ and "ON" or "OFF")
+  rjBtn.BackgroundColor3=Settings.autoRJ and Theme.accA or Theme.card
+  saveSettings()
+  if Settings.autoRJ then startRJ() else stopRJ() end
+end)
 if Settings.autoRJ then startRJ() end
 
 ------------------ Auto Loop ------------------
@@ -184,14 +195,19 @@ local function setLoop(on)
     looping=true
     task.spawn(function()
       while Settings.autoLoop do
-        if #waypoints==0 then task.wait(0.15) else
+        if #waypoints==0 then
+          task.wait(0.15)
+        else
           local d = math.clamp(math.floor(((tonumber(delayBox.Text) or Settings.loopDelay))+0.5),1,60)
           for i=1,#waypoints do
             if not Settings.autoLoop then break end
             local pos=waypoints[i]; local h=HRP(); if h then h.CFrame=CFrame.new(pos) end
             if Settings.moveDance then dance(pos) end
             local t0=tick(); while Settings.autoLoop and (tick()-t0<d) do task.wait(0.05) end
-            if Settings.autoLoop and i==#waypoints and Settings.autoKill then local hum=Hum(); if hum then hum.Health=0 end; LP.CharacterAdded:Wait(); task.wait(0.8) end
+            if Settings.autoLoop and i==#waypoints and Settings.autoKill then
+              local hum=Hum(); if hum then hum.Health=0 end
+              LP.CharacterAdded:Wait(); task.wait(0.8)
+            end
           end
         end
         task.wait(0.05)
@@ -202,8 +218,7 @@ local function setLoop(on)
 end
 loopBtn.MouseButton1Click:Connect(function() setLoop(not Settings.autoLoop) end)
 
--- sinkron textboxes jika ada file lama
--- (delayBox & rjBox sudah di-setup di atas)
+-- sinkron nilai textboxes
 delayBox.Text = tostring(Settings.loopDelay or 3)
 rjBox.Text    = tostring(Settings.autoRJDelay or 5)
 if Settings.autoLoop then setLoop(true) end
