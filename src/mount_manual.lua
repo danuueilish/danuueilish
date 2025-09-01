@@ -1,22 +1,21 @@
 -- src/mount_manual.lua
 -- Manual: Waypoints + Auto Loop + Dance 3x/8stud + Auto Kill + Auto Rejoin (persist)
 
-------------------------------------------------------------
--- Ambil container "Manual" dari UI
-------------------------------------------------------------
+----------------------------------------------------------------
+-- UI container
+----------------------------------------------------------------
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections then return end
 local sec = UI.MountSections["Manual"] or UI.NewSection(UI.Tabs.Mount, "Manual")
 if not sec then return end
 
 local Players         = game:GetService("Players")
-local UIS             = game:GetService("UserInputService")
 local GuiService      = game:GetService("GuiService")
 local TeleportService = game:GetService("TeleportService")
 local HttpService     = game:GetService("HttpService")
 local LP              = Players.LocalPlayer
 
--- tema mini
+-- theme
 local C = {
   bg   = Color3.fromRGB(24,20,40),
   card = Color3.fromRGB(44,36,72),
@@ -33,54 +32,19 @@ local function stroke(o,c,t) local s=Instance.new("UIStroke"); s.Color=c or Colo
 local function HRP() local ch=LP.Character or LP.CharacterAdded:Wait(); return ch:FindFirstChild("HumanoidRootPart") end
 local function Hum() local ch=LP.Character or LP.CharacterAdded:Wait(); return ch:FindFirstChildOfClass("Humanoid") end
 
-------------------------------------------------------------
--- Persist helpers
-------------------------------------------------------------
+----------------------------------------------------------------
+-- persist helpers
+----------------------------------------------------------------
 local CAN_FS = (writefile and readfile and isfile and makefolder) and true or false
 local function enc(t) return HttpService:JSONEncode(t) end
 local function dec(s) local ok,v=pcall(function() return HttpService:JSONDecode(s) end); return ok and v or nil end
 local function sread(p,fb) if not CAN_FS or not isfile(p) then return fb end; local ok,d=pcall(function() return readfile(p) end); return ok and d or fb end
 local function swrite(p,c) if not CAN_FS then return end; pcall(function() writefile(p,c) end) end
 
-------------------------------------------------------------
--- Row builder (HALUS & SIMPLE)
-------------------------------------------------------------
+----------------------------------------------------------------
+-- small builders
+----------------------------------------------------------------
 local order = 0
-local function Row(height)
-  order += 1
-  local row = Instance.new("Frame")
-  row.Name = "row"..order
-  row.LayoutOrder = order
-  row.Size = UDim2.new(1, -6, 0, height or 40)
-  row.BackgroundColor3 = C.card
-  row.Parent = sec
-  corner(row, 10); stroke(row, C.aA, 1)
-
-  local pad = Instance.new("UIPadding", row)
-  pad.PaddingLeft, pad.PaddingRight = UDim.new(0,10), UDim.new(0,10)
-  pad.PaddingTop,  pad.PaddingBottom = UDim.new(0,6), UDim.new(0,6)
-
-  local l = Instance.new("TextLabel")
-  l.BackgroundTransparency = 1
-  l.TextColor3, l.Font, l.TextSize = C.txt, Enum.Font.GothamSemibold, 14
-  l.TextXAlignment = Enum.TextXAlignment.Left
-  l.Text = ""
-  l.Size = UDim2.new(0,150,1,0)
-  l.Parent = row
-
-  local r = Instance.new("Frame")
-  r.BackgroundTransparency = 1
-  r.Size = UDim2.new(1,-150,1,0)
-  r.Parent = row
-  local rl = Instance.new("UIListLayout", r)
-  rl.FillDirection = Enum.FillDirection.Horizontal
-  rl.Padding = UDim.new(0,8)
-  rl.VerticalAlignment = Enum.VerticalAlignment.Center
-  rl.HorizontalAlignment = Enum.HorizontalAlignment.Right
-
-  return row, l, r
-end
-
 local function Label(text, h)
   order += 1
   local t = Instance.new("TextLabel")
@@ -91,15 +55,50 @@ local function Label(text, h)
   t.Font = Enum.Font.GothamBlack
   t.TextSize = 16
   t.TextXAlignment = Enum.TextXAlignment.Left
-  t.Size = UDim2.new(1, -6, 0, h or 24)
+  t.Size = UDim2.new(1,-6,0,h or 24)
   t.Parent = sec
   return t
+end
+
+local function Row(height)
+  order += 1
+  local row = Instance.new("Frame")
+  row.LayoutOrder = order
+  row.Size = UDim2.new(1,-6,0,height or 42)
+  row.BackgroundColor3 = C.card
+  row.Parent = sec
+  corner(row,10); stroke(row,C.aA,1)
+
+  local pad = Instance.new("UIPadding", row)
+  pad.PaddingLeft, pad.PaddingRight = UDim.new(0,10), UDim.new(0,10)
+  pad.PaddingTop,  pad.PaddingBottom = UDim.new(0,6), UDim.new(0,6)
+
+  local left = Instance.new("TextLabel")
+  left.BackgroundTransparency = 1
+  left.TextColor3 = C.txt
+  left.Font = Enum.Font.GothamSemibold
+  left.TextSize = 14
+  left.TextXAlignment = Enum.TextXAlignment.Left
+  left.Size = UDim2.new(0,150,1,0)
+  left.Parent = row
+
+  local right = Instance.new("Frame")
+  right.BackgroundTransparency = 1
+  right.Size = UDim2.new(1,-150,1,0)
+  right.Parent = row
+  local rl = Instance.new("UIListLayout", right)
+  rl.FillDirection = Enum.FillDirection.Horizontal
+  rl.Padding = UDim.new(0,8)
+  rl.VerticalAlignment = Enum.VerticalAlignment.Center
+  rl.HorizontalAlignment = Enum.HorizontalAlignment.Right
+
+  return row,left,right
 end
 
 local function Btn(parent, txt, w)
   local b = Instance.new("TextButton")
   b.AutoButtonColor = false
-  b.Size = UDim2.new(0, w or 150, 1, 0)
+  b.Size = UDim2.new(0, w or 140, 1, 0)
   b.Text = txt
   b.Font = Enum.Font.GothamSemibold
   b.TextSize = 14
@@ -113,7 +112,7 @@ end
 local function Box(parent, text, w)
   local tb = Instance.new("TextBox")
   tb.ClearTextOnFocus = false
-  tb.Size = UDim2.new(0, w or 120, 1, 0)
+  tb.Size = UDim2.new(0, w or 88, 1, 0)
   tb.Text = text
   tb.Font = Enum.Font.Gotham
   tb.TextSize = 14
@@ -125,9 +124,9 @@ local function Box(parent, text, w)
   return tb
 end
 
-------------------------------------------------------------
+----------------------------------------------------------------
 -- Waypoints (per PlaceId)
-------------------------------------------------------------
+----------------------------------------------------------------
 local WP_FILE = ("danuu_manual_wp_%s.json"):format(tostring(game.PlaceId))
 local waypoints = {}
 local function saveWP()
@@ -157,9 +156,9 @@ local function dance(center)
   end
 end
 
-------------------------------------------------------------
+----------------------------------------------------------------
 -- SETTINGS (persist)
-------------------------------------------------------------
+----------------------------------------------------------------
 local SETTINGS_FILE = "danuu_manual_settings.json"
 local Settings = {
   loopDelay   = 3,
@@ -175,79 +174,101 @@ do
 end
 local function saveSettings() swrite(SETTINGS_FILE, enc(Settings)) end
 
-------------------------------------------------------------
--- UI — Controls
-------------------------------------------------------------
--- Row: Waypoint buttons
-do
-  Label("List Waypoints")
-  -- kartu list kecil
-  order += 1
-  local card = Instance.new("Frame")
-  card.LayoutOrder = order
-  card.BackgroundColor3 = C.bg
-  card.Size = UDim2.new(1,-6,0,110) -- << kecil
-  card.Parent = sec
-  corner(card,10); stroke(card,C.aA,1)
+----------------------------------------------------------------
+-- UI — LIST WAYPOINTS (fix tombol keluar)
+----------------------------------------------------------------
+Label("List Waypoints")
 
-  local pad = Instance.new("UIPadding", card)
-  pad.PaddingLeft, pad.PaddingRight = UDim.new(0,8), UDim.new(0,8)
-  pad.PaddingTop,  pad.PaddingBottom = UDim.new(0,8), UDim.new(0,8)
+-- kartu list kecil & clip
+order += 1
+local card = Instance.new("Frame")
+card.LayoutOrder = order
+card.BackgroundColor3 = C.bg
+card.Size = UDim2.new(1,-6,0,110) -- kecil
+card.ClipsDescendants = true
+card.Parent = sec
+corner(card,10); stroke(card,C.aA,1)
 
-  local scroll = Instance.new("ScrollingFrame")
-  scroll.BackgroundTransparency = 1
-  scroll.Size = UDim2.fromScale(1,1)
-  scroll.ScrollBarThickness = 6
-  scroll.CanvasSize = UDim2.new(0,0,0,0)
-  scroll.Parent = card
+local pad = Instance.new("UIPadding", card)
+pad.PaddingLeft, pad.PaddingRight = UDim.new(0,8), UDim.new(0,8)
+pad.PaddingTop,  pad.PaddingBottom = UDim.new(0,8), UDim.new(0,8)
 
-  local list = Instance.new("UIListLayout", scroll)
-  list.Padding = UDim.new(0,6)
-  list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    scroll.CanvasSize = UDim2.new(0,0,0,list.AbsoluteContentSize.Y+8)
-  end)
+local scroll = Instance.new("ScrollingFrame")
+scroll.BackgroundTransparency = 1
+scroll.Size = UDim2.fromScale(1,1)
+scroll.ScrollBarThickness = 6
+scroll.CanvasSize = UDim2.new(0,0,0,0)
+scroll.ClipsDescendants = true
+scroll.Parent = card
 
-  local function refreshWP()
-    for _,c in ipairs(scroll:GetChildren()) do
-      if c:IsA("Frame") then c:Destroy() end
-    end
-    for i,pos in ipairs(waypoints) do
-      local row = Instance.new("Frame")
-      row.BackgroundColor3 = C.card
-      row.Size = UDim2.new(1,0,0,28)
-      row.Parent = scroll
-      corner(row,8); stroke(row,C.aA,1).Transparency = .6
+local list = Instance.new("UIListLayout", scroll)
+list.Padding = UDim.new(0,6)
+list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+  scroll.CanvasSize = UDim2.new(0,0,0,list.AbsoluteContentSize.Y+8)
+end)
 
-      local name = Instance.new("TextLabel")
-      name.BackgroundTransparency = 1
-      name.TextXAlignment = Enum.TextXAlignment.Left
-      name.Text = string.format("Camp %d (%.0f, %.0f, %.0f)", i,pos.X,pos.Y,pos.Z)
-      name.Font = Enum.Font.Gotham
-      name.TextColor3 = C.txt
-      name.TextSize = 13
-      name.Size = UDim2.new(1,-96,1,0)
-      name.Position = UDim2.fromOffset(8,0)
-      name.Parent = row
-
-      local tp = Btn(row, "TP", 42); tp.Position = UDim2.new(1,-88,0,0); tp.Size = UDim2.new(0,42,1,0)
-      local del = Btn(row,"✕", 42); del.BackgroundColor3 = C.bad; del.Position = UDim2.new(1,-44,0,0); del.Size = UDim2.new(0,42,1,0)
-
-      tp.MouseButton1Click:Connect(function()
-        local h = HRP(); if h then h.CFrame = CFrame.new(pos) end
-        if Settings.moveDance then dance(pos) end
-      end)
-      del.MouseButton1Click:Connect(function()
-        table.remove(waypoints, i); refreshWP(); saveWP()
-      end)
-    end
+local function refreshWP()
+  for _,c in ipairs(scroll:GetChildren()) do
+    if c:IsA("Frame") then c:Destroy() end
   end
+  for i,pos in ipairs(waypoints) do
+    local row = Instance.new("Frame")
+    row.BackgroundColor3 = C.card
+    row.Size = UDim2.new(1,0,0,28)
+    row.Parent = scroll
+    corner(row,8); stroke(row,C.aA,1).Transparency = .6
 
-  -- tombol set/del
+    -- inner horizontal layout (agar tombol tidak nabrak)
+    local inner = Instance.new("Frame")
+    inner.BackgroundTransparency = 1
+    inner.Size = UDim2.new(1,-2,1,-2)
+    inner.Position = UDim2.fromOffset(1,1)
+    inner.Parent = row
+    local hl = Instance.new("UIListLayout", inner)
+    hl.FillDirection = Enum.FillDirection.Horizontal
+    hl.Padding = UDim.new(0,6)
+    hl.VerticalAlignment = Enum.VerticalAlignment.Center
+    hl.HorizontalAlignment = Enum.HorizontalAlignment.Left
+
+    local name = Instance.new("TextLabel")
+    name.BackgroundTransparency = 1
+    name.TextXAlignment = Enum.TextXAlignment.Left
+    name.Text = string.format("Camp %d (%.0f, %.0f, %.0f)", i,pos.X,pos.Y,pos.Z)
+    name.Font = Enum.Font.Gotham
+    name.TextColor3 = C.txt
+    name.TextSize = 13
+    name.Size = UDim2.new(1, - (44+6+44), 1, 0) -- sisakan ruang 2 tombol
+    name.Parent = inner
+
+    local right = Instance.new("Frame")
+    right.BackgroundTransparency = 1
+    right.Size = UDim2.new(0, 44+6+44, 1, 0)
+    right.Parent = inner
+    local rl = Instance.new("UIListLayout", right)
+    rl.FillDirection = Enum.FillDirection.Horizontal
+    rl.Padding = UDim.new(0,6)
+    rl.VerticalAlignment = Enum.VerticalAlignment.Center
+    rl.HorizontalAlignment = Enum.HorizontalAlignment.Right
+
+    local tp  = Btn(right, "TP", 44)
+    local del = Btn(right, "✕", 44); del.BackgroundColor3 = C.bad
+
+    tp.MouseButton1Click:Connect(function()
+      local h = HRP(); if h then h.CFrame = CFrame.new(pos) end
+      if Settings.moveDance then dance(pos) end
+    end)
+    del.MouseButton1Click:Connect(function()
+      table.remove(waypoints, i); refreshWP(); saveWP()
+    end)
+  end
+end
+
+-- tombol set/del
+do
   local _, l, r = Row(40); l.Text = "Waypoints"
-  local setBtn = Btn(r,"Set Waypoint",140)
+  local setBtn = Btn(r,"Set Waypoint",150)
   local delBtn = Btn(r,"Delete Last",120); delBtn.BackgroundColor3 = C.card; stroke(delBtn,C.aA,1)
 
-  -- anti spam insert
   local lastPos, lastT = nil, 0
   local function mayInsert(p)
     if not lastPos then return true end
@@ -266,21 +287,23 @@ do
   delBtn.MouseButton1Click:Connect(function()
     if #waypoints>0 then table.remove(waypoints,#waypoints); refreshWP(); saveWP() end
   end)
-
-  refreshWP()
 end
 
+refreshWP()
+
+----------------------------------------------------------------
 -- Row: Delay + Auto Kill
-local delayBox, killBtn do
-  local _, l, r = Row(40); l.Text = "Delay (s)"
-  delayBox = Box(r, tostring(Settings.loopDelay or 3), 100)
+----------------------------------------------------------------
+local delayBox do
+  local _, l, r = Row(42); l.Text = "Delay (s)"
+  delayBox = Box(r, tostring(Settings.loopDelay or 3), 88)
   delayBox.FocusLost:Connect(function()
     local v = tonumber(delayBox.Text) or Settings.loopDelay
     v = math.clamp(math.floor(v+0.5),1,60)
     Settings.loopDelay = v; delayBox.Text = tostring(v); saveSettings()
   end)
 
-  killBtn = Btn(r, ("Auto respawn/kill: %s"):format(Settings.autoKill and "ON" or "OFF"), 180)
+  local killBtn = Btn(r, ("Auto respawn/kill: %s"):format(Settings.autoKill and "ON" or "OFF"), 190)
   killBtn.BackgroundColor3 = Settings.autoKill and C.aA or C.card; stroke(killBtn, C.aA, 1)
   killBtn.MouseButton1Click:Connect(function()
     Settings.autoKill = not Settings.autoKill
@@ -290,14 +313,16 @@ local delayBox, killBtn do
   end)
 end
 
--- Row: Opsi (Dance + Auto RJ + Delay RJ)
+----------------------------------------------------------------
+-- Row: Opsi (Dance + Auto RJ + RJ Delay)  <<< rjBox DITAMBAHKAN
+----------------------------------------------------------------
 local rjBox do
-  local _, l, r = Row(40); l.Text = "Opsi"
-  local danceBtn = Btn(r, ("Gerak 3x/8stud: %s"):format(Settings.moveDance and "ON" or "OFF"), 180)
+  local _, l, r = Row(46); l.Text = "Opsi"
+  local danceBtn = Btn(r, ("3x/8stud: %s"):format(Settings.moveDance and "ON" or "OFF"), 130)
   danceBtn.BackgroundColor3 = Settings.moveDance and C.aA or C.card; stroke(danceBtn,C.aA,1)
   danceBtn.MouseButton1Click:Connect(function()
     Settings.moveDance = not Settings.moveDance
-    danceBtn.Text = "Gerak 3x/8stud: "..(Settings.moveDance and "ON" or "OFF")
+    danceBtn.Text = "3x/8stud: "..(Settings.moveDance and "ON" or "OFF")
     danceBtn.BackgroundColor3 = Settings.moveDance and C.aA or C.card
     saveSettings()
   end)
@@ -305,7 +330,8 @@ local rjBox do
   local rjBtn = Btn(r, ("Auto rejoin: %s"):format(Settings.autoRJ and "ON" or "OFF"), 150)
   rjBtn.BackgroundColor3 = Settings.autoRJ and C.aA or C.card; stroke(rjBtn,C.aA,1)
 
-  rjBox = Box(r, tostring(Settings.autoRJDelay or 5), 80)
+  -- >>> Delay Auto Rejoin (selalu tampak)
+  rjBox = Box(r, tostring(Settings.autoRJDelay or 5), 70)
 
   local PlaceId, JobId = game.PlaceId, game.JobId
   local rjLoopOn, rjConn = false, nil
@@ -344,12 +370,15 @@ local rjBox do
     v = math.clamp(math.floor(v+0.5),2,120)
     Settings.autoRJDelay = v; rjBox.Text=tostring(v); saveSettings()
   end)
+
   if Settings.autoRJ then task.defer(function() rjBtn:Activate() end) end
 end
 
+----------------------------------------------------------------
 -- Row: Auto Loop
+----------------------------------------------------------------
 do
-  local _, l, r = Row(40); l.Text = "Auto Loop"
+  local _, l, r = Row(46); l.Text = "Auto Loop"
   local loopBtn = Btn(r, ("Auto loop: %s"):format(Settings.autoLoop and "ON" or "OFF"), 140)
   loopBtn.BackgroundColor3 = Settings.autoLoop and C.aA or C.card; stroke(loopBtn,C.aA,1)
 
@@ -367,7 +396,7 @@ do
           if #waypoints == 0 then
             task.wait(0.15)
           else
-            local d = tonumber(delayBox.Text) or Settings.loopDelay or 3
+            local d = tonumber(sec:FindFirstChildWhichIsA("TextBox", true).Text) or Settings.loopDelay or 3
             d = math.clamp(math.floor(d+0.5),1,60)
             for i=1,#waypoints do
               if not Settings.autoLoop then break end
@@ -395,4 +424,4 @@ do
   if Settings.autoLoop then task.defer(function() loopBtn:Activate() end) end
 end
 
-print("[danuu • Manual] UI ready ✓")
+print("[danuu • Manual] ready ✓")
