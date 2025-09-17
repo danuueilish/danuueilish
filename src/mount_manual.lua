@@ -1,5 +1,5 @@
--- src/mount_manual.lua (Complete Version with Auto Loop)
--- Manual Waypoints • Professional Layout with Toggle Switches
+-- src/mount_manual.lua (With Minimize Feature)
+-- Manual Waypoints • Collapsible by Default
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Manual"] then return end
 
@@ -60,15 +60,59 @@ local function dec(s) local ok,res=pcall(function() return HttpService:JSONDecod
 local function sread(path, fb) if CAN_FS and isfile(path) then local ok,dt=pcall(readfile,path); if ok and dt~="" then return dt end end; return fb end
 local function swrite(path, content) if CAN_FS then pcall(writefile,path,content) end end
 
--- ===== CLEAN SUB-SECTION BUILDER =====
+-- ===== MINIMIZE FUNCTIONALITY =====
 local secRoot = UI.MountSections["Manual"]
+local isMinimized = true -- START MINIMIZED BY DEFAULT
 
+-- Create Main Toggle Button (always visible at top)
+local mainToggle = Instance.new("TextButton")
+mainToggle.Name = "MainToggle"
+mainToggle.AutoButtonColor = false
+mainToggle.Text = "+ Manual Waypoints"
+mainToggle.Font = Enum.Font.GothamBold
+mainToggle.TextSize = 16
+mainToggle.TextColor3 = Theme.accA
+mainToggle.BackgroundColor3 = Theme.card
+mainToggle.Size = UDim2.new(1, -8, 0, 40)
+mainToggle.Position = UDim2.fromOffset(4, 4)
+mainToggle.Parent = secRoot
+corner(mainToggle, 10)
+stroke(mainToggle, Theme.accA, 1).Transparency = .4
+
+-- Container for all content (initially hidden)
+local contentContainer = Instance.new("Frame")
+contentContainer.Name = "ContentContainer"
+contentContainer.BackgroundTransparency = 1
+contentContainer.Size = UDim2.new(1, -8, 1, -52)
+contentContainer.Position = UDim2.fromOffset(4, 48)
+contentContainer.Visible = false -- START HIDDEN
+contentContainer.Parent = secRoot
+
+local contentLayout = Instance.new("UIListLayout", contentContainer)
+contentLayout.Padding = UDim.new(0, 10)
+contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Toggle Function
+local function toggleMinimize()
+  isMinimized = not isMinimized
+  contentContainer.Visible = not isMinimized
+  mainToggle.Text = (isMinimized and "+" or "–") .. " Manual Waypoints"
+  
+  -- Smooth transition
+  local targetSize = isMinimized and UDim2.new(1, -4, 0, 50) or UDim2.new(1, -4, 0, 680)
+  TweenService:Create(secRoot, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+    Size = targetSize
+  }):Play()
+end
+
+mainToggle.MouseButton1Click:Connect(toggleMinimize)
+
+-- ===== CLEAN SUB-SECTION BUILDER (Modified for contentContainer) =====
 local function newCleanSub(titleText, height)
   local container = Instance.new("Frame")
   container.BackgroundColor3 = Theme.card
-  container.Size = UDim2.new(1, -4, 0, height or 200)
-  container.Position = UDim2.fromOffset(2, 0)
-  container.Parent = secRoot
+  container.Size = UDim2.new(1, 0, 0, height or 200)
+  container.Parent = contentContainer -- Changed parent
   container.ClipsDescendants = true
   corner(container, 12)
   stroke(container, Theme.accA, 1).Transparency = .6
@@ -151,7 +195,6 @@ local function createOptionRow(parent, labelText, hasInputBox, initialValue, tog
   row.Size = UDim2.new(1, 0, 0, 36)
   row.Parent = parent
   
-  -- Label (kiri)
   local label = Instance.new("TextLabel")
   label.BackgroundTransparency = 1
   label.Text = labelText
@@ -165,7 +208,6 @@ local function createOptionRow(parent, labelText, hasInputBox, initialValue, tog
   
   local inputBox = nil
   if hasInputBox then
-    -- Input Box (tengah)
     inputBox = Instance.new("TextBox")
     inputBox.BackgroundColor3 = Theme.bg
     inputBox.TextColor3 = Theme.text
@@ -187,7 +229,6 @@ local function createOptionRow(parent, labelText, hasInputBox, initialValue, tog
     end
   end
   
-  -- Toggle Switch (kanan)
   local toggle, getState, setState = createToggleSwitch(row, toggleState, onToggleChange)
   toggle.Position = UDim2.new(1, -52, 0.5, -12)
   
@@ -229,8 +270,9 @@ end
 
 -- ===== SECTION 1: WAYPOINTS =====
 local waypointContent = newCleanSub("Waypoints", 180)
+waypointContent.Parent.LayoutOrder = 1
 
--- Waypoints List
+-- [Waypoints List Code - SAMA SEPERTI SEBELUMNYA]
 local listFrame = Instance.new("Frame")
 listFrame.BackgroundColor3 = Theme.bg
 listFrame.Size = UDim2.new(1, 0, 1, -50)
@@ -353,10 +395,11 @@ deleteBtn.AutoButtonColor = false
 deleteBtn.Parent = controlFrame
 corner(deleteBtn, 8)
 
--- ===== SECTION 2: OPTIONS (COMPLETE WITH AUTO LOOP) =====
-local optionContent = newCleanSub("Options", 250) -- Height increased for 5 rows
+-- ===== SECTION 2: OPTIONS =====
+local optionContent = newCleanSub("Options", 250)
+optionContent.Parent.LayoutOrder = 2
 
--- Create all option rows with proper layout
+-- [All option rows code - SAMA SEPERTI SEBELUMNYA]
 local delayRow, delayBox, _, setDelayState = createOptionRow(
   optionContent, "Delay Teleport", true, Settings.loopDelay, false, 
   function(text)
@@ -399,7 +442,6 @@ local rjRow, rjDelayBox, getRjState, setRjState = createOptionRow(
   end
 )
 
--- ===== AUTO LOOP ROW (ADDED) =====
 local autoLoopRow, _, getAutoLoopState, setAutoLoopState = createOptionRow(
   optionContent, "Auto Loop", false, nil, Settings.autoLoop,
   nil, function(state)
@@ -447,9 +489,7 @@ function setAutoLoop(enabled)
   end
 end
 
--- ===== LOGIC & EVENT HANDLERS =====
-
--- Waypoint button logic
+-- ===== EVENT HANDLERS =====
 local lastPos, lastTime = nil, 0
 local function canInsert(pos)
   if not lastPos then return true end
@@ -513,10 +553,13 @@ function stopRejoin()
 end
 
 -- ===== INITIALIZATION =====
+-- Set initial minimize state
+secRoot.Size = UDim2.new(1, -4, 0, 50) -- Start minimized
+
 loadWaypoints()
 refreshWaypoints()
 
 if Settings.autoRJ then startRejoin() end
 if Settings.autoLoop then setAutoLoop(true) end
 
-print("[danuu • Manual] Complete version with Auto Loop loaded ✓")
+print("[danuu • Manual] Collapsible version loaded ✓")
