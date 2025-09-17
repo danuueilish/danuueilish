@@ -1,5 +1,5 @@
--- src/mount_atin.lua (With Expand/Collapse Feature)
--- Mount Atin : Checkpoint + Poseidon Quest (rapi + aman + collapsible)
+-- src/mount_atin.lua (Fixed Dropdown Positioning Version)
+-- Mount Atin : Checkpoint + Poseidon Quest (rapi + aman + collapsible + fixed dropdown)
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
 
@@ -55,21 +55,6 @@ contentContainer.Parent = secRoot
 local contentLayout = Instance.new("UIListLayout", contentContainer)
 contentLayout.Padding = UDim.new(0, 10)
 contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
--- Toggle Function
-local function toggleMinimize()
-  isMinimized = not isMinimized
-  contentContainer.Visible = not isMinimized
-  mainToggle.Text = (isMinimized and "+" or "–") .. " Mount Atin"
-  
-  -- Smooth transition
-  local targetSize = isMinimized and UDim2.new(1, -4, 0, 50) or UDim2.new(1, -4, 0, 800)
-  TweenService:Create(secRoot, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-    Size = targetSize
-  }):Play()
-end
-
-mainToggle.MouseButton1Click:Connect(toggleMinimize)
 
 ----------------------------------------------------------------
 -- HELPERS
@@ -179,7 +164,7 @@ end
 ----------------------------------------------------------------
 local cpInner = newSub("Checkpoint")
 
--- Row: [dropdown + GoTo] (label "Checkpoint" DIHAPUS sesuai minta)
+-- Row: [dropdown + GoTo]
 local row = Instance.new("Frame"); row.BackgroundTransparency=1; row.Size=UDim2.new(1,0,0,36); row.Parent=cpInner
 local h = Instance.new("UIListLayout", row)
 h.FillDirection=Enum.FillDirection.Horizontal; h.Padding=UDim.new(0,8); h.VerticalAlignment=Enum.VerticalAlignment.Center
@@ -200,10 +185,10 @@ dd.TextWrapped=false; dd.TextTruncate=Enum.TextTruncate.AtEnd
 dd.BackgroundColor3=Theme.card; dd.Size=UDim2.new(0,260,1,0); dd.Parent=right
 corner(dd,8); stroke(dd,Theme.accA,1).Transparency=.45
 
--- Panel list (ditaruh di root section agar tidak kepotong) - TETAP DI secRoot
+-- Panel list (ditaruh di contentContainer agar positioning benar)
 local panel = Instance.new("Frame")
 panel.Visible=false; panel.BackgroundColor3=Theme.card
-panel.Size=UDim2.new(0,260,0,184); panel.Parent=secRoot -- IMPORTANT: Keep at secRoot
+panel.Size=UDim2.new(0,260,0,184); panel.Parent=contentContainer -- FIXED: Parent ke contentContainer
 panel.ClipsDescendants=true; panel.ZIndex=5
 corner(panel,8); stroke(panel,Theme.accB,1).Transparency=.35
 
@@ -216,22 +201,24 @@ l:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
   listScroll.CanvasSize=UDim2.new(0,0,0,l.AbsoluteContentSize.Y+8)
 end)
 
--- Posisi dropdown list DI-CLAMP supaya tidak keluar kotak section
+-- FIXED: Posisi dropdown list calculation
 local function placePanel()
-  local rootAbs = secRoot.AbsolutePosition
-  local rootSize = secRoot.AbsoluteSize
+  if not contentContainer.Visible then return end -- Don't position if collapsed
+  
+  local containerAbs = contentContainer.AbsolutePosition
+  local containerSize = contentContainer.AbsoluteSize
   local abs = dd.AbsolutePosition
   local ddSize = dd.AbsoluteSize
   local margin = 8
   local width = 260
 
-  local x = abs.X - rootAbs.X
-  local y = abs.Y - rootAbs.Y + ddSize.Y + 6
+  local x = abs.X - containerAbs.X
+  local y = abs.Y - containerAbs.Y + ddSize.Y + 6
 
   if x < margin then x = margin end
-  if x + width + margin > rootSize.X then x = rootSize.X - width - margin end
+  if x + width + margin > containerSize.X then x = containerSize.X - width - margin end
 
-  local maxH = math.min(224, rootSize.Y - y - margin)
+  local maxH = math.min(224, containerSize.Y - y - margin)
   panel.Size = UDim2.new(0, width, 0, math.max(120, maxH))
   panel.Position = UDim2.fromOffset(x, y)
 end
@@ -320,7 +307,7 @@ do
 end
 
 ----------------------------------------------------------------
--- SUB: AUTO SUMMIT (baru, di tengah)
+-- SUB: AUTO SUMMIT
 ----------------------------------------------------------------
 local Http            = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
@@ -399,7 +386,7 @@ rjToggle.AutoButtonColor=false
 corner(rjToggle,8); stroke(rjToggle,Theme.accA,1).Transparency=.5
 rjToggle.Parent = asRow2
 
--- ====== Logic Auto Summit
+-- Logic Auto Summit
 local fileOK = (writefile and readfile and isfile) and true or false
 local AS_FILE = ("danuu_as_%s.json"):format(tostring(game.PlaceId))
 
@@ -502,7 +489,6 @@ rjToggle.MouseButton1Click:Connect(function()
   if state.rjOn then
     if not errorConn then
       errorConn = GuiService.ErrorMessageChanged:Connect(function()
-        -- jika ada error modal dari Roblox → langsung RJ
         task.defer(doRJ)
       end)
     end
@@ -515,17 +501,14 @@ end)
 task.spawn(function()
   while secRoot.Parent do
     if state.loopOn then
-      -- 1) TP ke Summit + "dance"
       safeTP(summitPos)
       summitDance(summitPos)
 
-      -- 2) Tunggu delay loop (bisa dimatikan kapan saja)
       local t0 = tick()
       while state.loopOn and tick() - t0 < (state.loopDelay or 3) do
         task.wait(0.05)
       end
 
-      -- 3) Auto Rejoin (opsional) setelah cycle
       if state.loopOn and state.rjOn then
         local tr0 = tick()
         while state.loopOn and state.rjOn and tick() - tr0 < (state.rjDelay or 5) do
@@ -578,10 +561,10 @@ pGo.Font=Enum.Font.GothamSemibold; pGo.TextSize=14; pGo.TextColor3=Theme.text
 pGo.BackgroundColor3=Theme.accA; pGo.Size=UDim2.new(0,120,1,0); pGo.Parent=prow
 corner(pGo,8); stroke(pGo,Theme.accB,1).Transparency=.3
 
--- Panel list manual (clamped) - TETAP DI secRoot
+-- Panel list manual (FIXED: Parent ke contentContainer)
 local pPanel = Instance.new("Frame")
 pPanel.Visible=false; pPanel.BackgroundColor3=Theme.card
-pPanel.Size=UDim2.new(0,260,0,184); pPanel.Parent=secRoot -- IMPORTANT: Keep at secRoot
+pPanel.Size=UDim2.new(0,260,0,184); pPanel.Parent=contentContainer -- FIXED: Parent ke contentContainer
 pPanel.ClipsDescendants=true; pPanel.ZIndex=5
 corner(pPanel,8); stroke(pPanel,Theme.accB,1).Transparency=.35
 
@@ -594,17 +577,23 @@ pUIL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
   pList.CanvasSize=UDim2.new(0,0,0,pUIL.AbsoluteContentSize.Y+8)
 end)
 
+-- FIXED: Posisi dropdown Poseidon calculation
 local function placePPanel()
-  local rootAbs = secRoot.AbsolutePosition
-  local rootSize = secRoot.AbsoluteSize
+  if not contentContainer.Visible then return end -- Don't position if collapsed
+  
+  local containerAbs = contentContainer.AbsolutePosition
+  local containerSize = contentContainer.AbsoluteSize
   local abs = pdd.AbsolutePosition
   local ddSize = pdd.AbsoluteSize
   local margin, width = 8, 260
-  local x = abs.X - rootAbs.X
-  local y = abs.Y - rootAbs.Y + ddSize.Y + 6
+  
+  local x = abs.X - containerAbs.X
+  local y = abs.Y - containerAbs.Y + ddSize.Y + 6
+  
   if x < margin then x = margin end
-  if x + width + margin > rootSize.X then x = rootSize.X - width - margin end
-  local maxH = math.min(224, rootSize.Y - y - margin)
+  if x + width + margin > containerSize.X then x = containerSize.X - width - margin end
+  
+  local maxH = math.min(224, containerSize.Y - y - margin)
   pPanel.Size = UDim2.new(0, width, 0, math.max(120, maxH))
   pPanel.Position = UDim2.fromOffset(x, y)
 end
@@ -692,8 +681,38 @@ mkBtn("Auto Quest Poseidon", function()
   else setStatus("Helmet tidak ditemukan.",false) end
 end)
 
+-- FIXED: Toggle Function with proper dropdown handling
+local function toggleMinimize()
+  isMinimized = not isMinimized
+  contentContainer.Visible = not isMinimized
+  mainToggle.Text = (isMinimized and "+" or "–") .. " Mount Atin"
+  
+  -- Smooth transition
+  local targetSize = isMinimized and UDim2.new(1, -4, 0, 50) or UDim2.new(1, -4, 0, 800)
+  TweenService:Create(secRoot, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+    Size = targetSize
+  }):Play()
+  
+  -- Handle dropdowns properly
+  if isMinimized then
+    -- Hide dropdowns when collapsing
+    panel.Visible = false
+    pPanel.Visible = false
+  else
+    -- Recalculate positions when expanding
+    task.wait(0.35) -- Wait for tween to complete
+    placePanel()
+    placePPanel()
+  end
+end
+
+mainToggle.MouseButton1Click:Connect(toggleMinimize)
+
 -- ===== INITIALIZATION =====
 -- Set initial minimize state
 secRoot.Size = UDim2.new(1, -4, 0, 50) -- Start minimized
+contentContainer.Visible = false
+panel.Visible = false
+pPanel.Visible = false
 
-print("[danuu • Mount Atin] Collapsible version loaded ✓")
+print("[danuu • Mount Atin] Fixed dropdown positioning version loaded ✓")
