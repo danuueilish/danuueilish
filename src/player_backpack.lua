@@ -1,5 +1,5 @@
 -- src/player_backpack.lua  
--- Check Player Backpack - danuu eilish Hub
+-- Check Player Backpack - danuu eilish Hub (Enhanced with Username + Nickname Search)
 local UI = _G.danuu_hub_ui
 if not UI or not UI.Tabs or not UI.Tabs.Utility then return end
 
@@ -40,7 +40,7 @@ local playerInput = Instance.new("TextBox")
 playerInput.Size = UDim2.new(0.7, -4, 1, 0)
 playerInput.BackgroundColor3 = Theme.card
 playerInput.TextColor3 = Theme.text
-playerInput.PlaceholderText = "Masukkan nama player..."
+playerInput.PlaceholderText = "Username atau nickname..."
 playerInput.PlaceholderColor3 = Theme.text2
 playerInput.ClearTextOnFocus = false
 playerInput.Text = ""
@@ -124,7 +124,38 @@ end
 local checkAllBtn = quickBtn("Cek Semua Player", function() checkAllPlayers() end)
 local clearBtn = quickBtn("Clear Results", function() clearResults() end)
 
--- ===== Helper Functions
+-- ===== Enhanced Helper Functions dengan Username + Nickname Search
+function findPlayer(query)
+    if not query or query == "" then return nil end
+    
+    local q = query:lower():match("^%s*(.-)%s*$") -- trim whitespace dan lowercase
+    
+    -- 1) Exact match dulu (username atau nickname)
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Name:lower() == q or player.DisplayName:lower() == q then
+            return player
+        end
+    end
+    
+    -- 2) Prefix match (starts with)
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Name:lower():find("^" .. q:gsub("[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%1")) or 
+           player.DisplayName:lower():find("^" .. q:gsub("[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%1")) then
+            return player
+        end
+    end
+    
+    -- 3) Contains match (mengandung)
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Name:lower():find(q:gsub("[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%1"), 1, true) or 
+           player.DisplayName:lower():find(q:gsub("[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%1"), 1, true) then
+            return player
+        end
+    end
+    
+    return nil
+end
+
 function clearResults()
     for _, child in pairs(resultScroll:GetChildren()) do
         if child:IsA("TextLabel") then
@@ -162,22 +193,27 @@ function getPlayerBackpack(targetPlayer)
     return items
 end
 
-function checkPlayerBackpack(playerName)
-    if not playerName or playerName == "" then
+function checkPlayerBackpack(playerQuery)
+    if not playerQuery or playerQuery == "" then
         addResultText("❌ Masukkan nama player terlebih dahulu!", Theme.bad)
         return
     end
     
-    local targetPlayer = Players:FindFirstChild(playerName)
+    local targetPlayer = findPlayer(playerQuery)
     
     if not targetPlayer then
-        addResultText("❌ Player '" .. playerName .. "' tidak ditemukan!", Theme.bad)
+        addResultText("❌ Player '" .. playerQuery .. "' tidak ditemukan!", Theme.bad)
+        addResultText("💡 Coba gunakan username atau nickname", Theme.text2)
         return
     end
     
     local items = getPlayerBackpack(targetPlayer)
+    local displayInfo = targetPlayer.Name
+    if targetPlayer.DisplayName ~= targetPlayer.Name then
+        displayInfo = targetPlayer.DisplayName .. " (" .. targetPlayer.Name .. ")"
+    end
     
-    addResultText("=== " .. playerName .. "'s Backpack ===", Theme.accB)
+    addResultText("=== " .. displayInfo .. "'s Backpack ===", Theme.accB)
     
     if #items > 0 then
         for i, itemName in pairs(items) do
@@ -202,7 +238,12 @@ function checkAllPlayers()
             count = count + 1
             local items = getPlayerBackpack(player)
             
-            addResultText("👤 " .. player.Name, Theme.accB)
+            local displayInfo = player.Name
+            if player.DisplayName ~= player.Name then
+                displayInfo = player.DisplayName .. " (" .. player.Name .. ")"
+            end
+            
+            addResultText("👤 " .. displayInfo, Theme.accB)
             if #items > 0 then
                 for i, itemName in pairs(items) do
                     addResultText("  " .. i .. ". " .. itemName, Theme.text)
@@ -223,20 +264,20 @@ end
 
 -- ===== Event Connections
 checkBtn.MouseButton1Click:Connect(function()
-    local playerName = playerInput.Text:match("^%s*(.-)%s*$") -- trim whitespace
-    checkPlayerBackpack(playerName)
+    local playerQuery = playerInput.Text:match("^%s*(.-)%s*$") -- trim whitespace
+    checkPlayerBackpack(playerQuery)
 end)
 
 -- Enter key support
 playerInput.FocusLost:Connect(function(enterPressed)
     if enterPressed then
-        local playerName = playerInput.Text:match("^%s*(.-)%s*$")
-        checkPlayerBackpack(playerName)
+        local playerQuery = playerInput.Text:match("^%s*(.-)%s*$")
+        checkPlayerBackpack(playerQuery)
     end
 end)
 
 -- ===== Initial message
-addResultText("💡 Masukkan nama player dan klik 'Cek Backpack'", Theme.text2)
+addResultText("💡 Masukkan username atau nickname player", Theme.text2)
 addResultText("🎯 Atau gunakan 'Cek Semua Player' untuk scan semua", Theme.text2)
 
 print("[danuu-hub] Player Backpack Checker loaded ✓")
