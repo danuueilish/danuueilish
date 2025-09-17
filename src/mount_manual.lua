@@ -1,5 +1,5 @@
--- src/mount_manual.lua (FIXED VERSION)
--- Manual Waypoints • Clean & User Friendly Design
+-- src/mount_manual.lua (Clean Horizontal Layout Version)
+-- Manual Waypoints • Professional Layout with Toggle Switches
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Manual"] then return end
 
@@ -8,6 +8,7 @@ local UIS = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
 local LP = Players.LocalPlayer
 
 local Theme = {
@@ -68,7 +69,7 @@ local function newCleanSub(titleText, height)
   container.Size = UDim2.new(1, -4, 0, height or 200)
   container.Position = UDim2.fromOffset(2, 0)
   container.Parent = secRoot
-  container.ClipsDescendants = true -- IMPORTANT: prevent overflow
+  container.ClipsDescendants = true
   corner(container, 12)
   stroke(container, Theme.accA, 1).Transparency = .6
 
@@ -90,10 +91,107 @@ local function newCleanSub(titleText, height)
   content.Parent = container
   
   local contentLayout = Instance.new("UIListLayout", content)
-  contentLayout.Padding = UDim.new(0, 8)
+  contentLayout.Padding = UDim.new(0, 10)
   contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
   
   return content, container
+end
+
+-- ===== TOGGLE SWITCH BUILDER =====
+local function createToggleSwitch(parent, initialState, callback)
+  local switchFrame = Instance.new("Frame")
+  switchFrame.BackgroundColor3 = initialState and Theme.good or Color3.fromRGB(60, 60, 60)
+  switchFrame.Size = UDim2.new(0, 48, 0, 24)
+  switchFrame.Parent = parent
+  corner(switchFrame, 12)
+  
+  local knob = Instance.new("Frame")
+  knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+  knob.Size = UDim2.new(0, 20, 0, 20)
+  knob.Position = initialState and UDim2.new(0, 26, 0, 2) or UDim2.new(0, 2, 0, 2)
+  knob.Parent = switchFrame
+  corner(knob, 10)
+  
+  local clickDetector = Instance.new("TextButton")
+  clickDetector.BackgroundTransparency = 1
+  clickDetector.Size = UDim2.fromScale(1, 1)
+  clickDetector.Text = ""
+  clickDetector.Parent = switchFrame
+  
+  local state = initialState
+  
+  clickDetector.MouseButton1Click:Connect(function()
+    state = not state
+    
+    local bgTween = TweenService:Create(switchFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+      BackgroundColor3 = state and Theme.good or Color3.fromRGB(60, 60, 60)
+    })
+    
+    local knobTween = TweenService:Create(knob, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+      Position = state and UDim2.new(0, 26, 0, 2) or UDim2.new(0, 2, 0, 2)
+    })
+    
+    bgTween:Play()
+    knobTween:Play()
+    
+    if callback then callback(state) end
+  end)
+  
+  return switchFrame, function() return state end, function(newState)
+    state = newState
+    switchFrame.BackgroundColor3 = state and Theme.good or Color3.fromRGB(60, 60, 60)
+    knob.Position = state and UDim2.new(0, 26, 0, 2) or UDim2.new(0, 2, 0, 2)
+  end
+end
+
+-- ===== ROW BUILDER =====
+local function createOptionRow(parent, labelText, hasInputBox, initialValue, toggleState, onInputChange, onToggleChange)
+  local row = Instance.new("Frame")
+  row.BackgroundTransparency = 1
+  row.Size = UDim2.new(1, 0, 0, 36)
+  row.Parent = parent
+  
+  -- Label (kiri)
+  local label = Instance.new("TextLabel")
+  label.BackgroundTransparency = 1
+  label.Text = labelText
+  label.Font = Enum.Font.GothamSemibold
+  label.TextSize = 14
+  label.TextColor3 = Theme.text
+  label.TextXAlignment = Enum.TextXAlignment.Left
+  label.Size = UDim2.new(0, 140, 1, 0)
+  label.Position = UDim2.fromOffset(0, 0)
+  label.Parent = row
+  
+  local inputBox = nil
+  if hasInputBox then
+    -- Input Box (tengah)
+    inputBox = Instance.new("TextBox")
+    inputBox.BackgroundColor3 = Theme.bg
+    inputBox.TextColor3 = Theme.text
+    inputBox.Text = tostring(initialValue or "")
+    inputBox.Font = Enum.Font.Gotham
+    inputBox.TextSize = 14
+    inputBox.TextXAlignment = Enum.TextXAlignment.Center
+    inputBox.ClearTextOnFocus = false
+    inputBox.Size = UDim2.new(0, 70, 0, 28)
+    inputBox.Position = UDim2.new(1, -126, 0.5, -14)
+    inputBox.Parent = row
+    corner(inputBox, 8)
+    stroke(inputBox, Theme.accA, 1).Transparency = .6
+    
+    if onInputChange then
+      inputBox.FocusLost:Connect(function()
+        onInputChange(inputBox.Text)
+      end)
+    end
+  end
+  
+  -- Toggle Switch (kanan)
+  local toggle, getState, setState = createToggleSwitch(row, toggleState, onToggleChange)
+  toggle.Position = UDim2.new(1, -52, 0.5, -12)
+  
+  return row, inputBox, getState, setState
 end
 
 -- ===== SETTINGS MANAGEMENT =====
@@ -130,9 +228,9 @@ local function saveWaypoints()
 end
 
 -- ===== SECTION 1: WAYPOINTS =====
-local waypointContent = newCleanSub("Waypoints", 200)
+local waypointContent = newCleanSub("Waypoints", 180)
 
--- Waypoints List (Scrollable)
+-- Waypoints List
 local listFrame = Instance.new("Frame")
 listFrame.BackgroundColor3 = Theme.bg
 listFrame.Size = UDim2.new(1, 0, 1, -50)
@@ -168,29 +266,29 @@ local function refreshWaypoints()
     local row = Instance.new("Frame")
     row.Name = "WaypointRow"
     row.BackgroundColor3 = Theme.card
-    row.Size = UDim2.new(1, 0, 0, 32)
+    row.Size = UDim2.new(1, 0, 0, 28)
     row.Parent = listScroll
-    corner(row, 6); stroke(row, Theme.accA, 1).Transparency = .6
+    corner(row, 6)
 
     local nameLabel = Instance.new("TextLabel")
     nameLabel.BackgroundTransparency = 1
     nameLabel.Text = string.format("Camp %d (%.0f, %.0f, %.0f)", i, pos.X, pos.Y, pos.Z)
     nameLabel.Font = Enum.Font.Gotham
-    nameLabel.TextSize = 13
+    nameLabel.TextSize = 12
     nameLabel.TextColor3 = Theme.text
     nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-    nameLabel.Size = UDim2.new(1, -100, 1, 0)
+    nameLabel.Size = UDim2.new(1, -90, 1, 0)
     nameLabel.Position = UDim2.fromOffset(8, 0)
     nameLabel.Parent = row
 
     local tpBtn = Instance.new("TextButton")
     tpBtn.Text = "TP"
     tpBtn.Font = Enum.Font.GothamSemibold
-    tpBtn.TextSize = 12
+    tpBtn.TextSize = 11
     tpBtn.TextColor3 = Theme.text
     tpBtn.BackgroundColor3 = Theme.accA
-    tpBtn.Size = UDim2.new(0, 40, 0, 24)
-    tpBtn.Position = UDim2.new(1, -84, 0.5, -12)
+    tpBtn.Size = UDim2.new(0, 32, 0, 20)
+    tpBtn.Position = UDim2.new(1, -74, 0.5, -10)
     tpBtn.AutoButtonColor = false
     tpBtn.Parent = row
     corner(tpBtn, 6)
@@ -198,11 +296,11 @@ local function refreshWaypoints()
     local delBtn = Instance.new("TextButton")
     delBtn.Text = "✕"
     delBtn.Font = Enum.Font.GothamBold
-    delBtn.TextSize = 12
+    delBtn.TextSize = 11
     delBtn.TextColor3 = Theme.text
     delBtn.BackgroundColor3 = Theme.bad
-    delBtn.Size = UDim2.new(0, 40, 0, 24)
-    delBtn.Position = UDim2.new(1, -40, 0.5, -12)
+    delBtn.Size = UDim2.new(0, 32, 0, 20)
+    delBtn.Position = UDim2.new(1, -38, 0.5, -10)
     delBtn.AutoButtonColor = false
     delBtn.Parent = row
     corner(delBtn, 6)
@@ -223,7 +321,7 @@ end
 -- Control Buttons
 local controlFrame = Instance.new("Frame")
 controlFrame.BackgroundTransparency = 1
-controlFrame.Size = UDim2.new(1, 0, 0, 36)
+controlFrame.Size = UDim2.new(1, 0, 0, 32)
 controlFrame.LayoutOrder = 2
 controlFrame.Parent = waypointContent
 
@@ -236,24 +334,82 @@ controlLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 local setBtn = Instance.new("TextButton")
 setBtn.Text = "Set Waypoint"
 setBtn.Font = Enum.Font.GothamSemibold
-setBtn.TextSize = 14
+setBtn.TextSize = 13
 setBtn.TextColor3 = Theme.text
 setBtn.BackgroundColor3 = Theme.accA
-setBtn.Size = UDim2.new(0, 130, 1, 0)
+setBtn.Size = UDim2.new(0, 120, 1, 0)
 setBtn.AutoButtonColor = false
 setBtn.Parent = controlFrame
-corner(setBtn, 8); stroke(setBtn, Theme.accB, 1).Transparency = .3
+corner(setBtn, 8)
 
 local deleteBtn = Instance.new("TextButton")
 deleteBtn.Text = "Delete Last"
 deleteBtn.Font = Enum.Font.GothamSemibold
-deleteBtn.TextSize = 14
+deleteBtn.TextSize = 13
 deleteBtn.TextColor3 = Theme.text
 deleteBtn.BackgroundColor3 = Theme.card
-deleteBtn.Size = UDim2.new(0, 130, 1, 0)
+deleteBtn.Size = UDim2.new(0, 120, 1, 0)
 deleteBtn.AutoButtonColor = false
 deleteBtn.Parent = controlFrame
-corner(deleteBtn, 8); stroke(deleteBtn, Theme.accA, 1).Transparency = .5
+corner(deleteBtn, 8)
+
+-- ===== SECTION 2: OPTIONS (CLEAN HORIZONTAL LAYOUT) =====
+local optionContent = newCleanSub("Options", 220)
+
+-- Create all option rows with proper layout
+local delayRow, delayBox, _, setDelayState = createOptionRow(
+  optionContent, "Delay Teleport", true, Settings.loopDelay, false, 
+  function(text)
+    local v = tonumber(text) or Settings.loopDelay
+    v = math.clamp(math.floor(v + 0.5), 1, 60)
+    Settings.loopDelay = v
+    delayBox.Text = tostring(v)
+    saveSettings()
+  end, nil
+)
+
+local killRow, _, getKillState, setKillState = createOptionRow(
+  optionContent, "Auto Kill", false, nil, Settings.autoKill,
+  nil, function(state)
+    Settings.autoKill = state
+    saveSettings()
+  end
+)
+
+local danceRow, _, getDanceState, setDanceState = createOptionRow(
+  optionContent, "3x/8stud", false, nil, Settings.moveDance,
+  nil, function(state)
+    Settings.moveDance = state
+    saveSettings()
+  end
+)
+
+local rjRow, rjDelayBox, getRjState, setRjState = createOptionRow(
+  optionContent, "Auto Rejoin", true, Settings.autoRJDelay, Settings.autoRJ,
+  function(text)
+    local v = tonumber(text) or Settings.autoRJDelay
+    v = math.clamp(math.floor(v + 0.5), 2, 120)
+    Settings.autoRJDelay = v
+    rjDelayBox.Text = tostring(v)
+    saveSettings()
+  end, function(state)
+    Settings.autoRJ = state
+    saveSettings()
+    if Settings.autoRJ then startRejoin() else stopRejoin() end
+  end
+)
+
+local loopRow, _, getLoopState, setLoopState = createOptionRow(
+  optionContent, "Auto Loop", false, nil, Settings.autoLoop,
+  nil, function(state)
+    Settings.autoLoop = state
+    saveSettings()
+    setAutoLoop(state)
+  end
+)
+
+-- ===== LOGIC & EVENT HANDLERS =====
+local looping = false
 
 -- Waypoint button logic
 local lastPos, lastTime = nil, 0
@@ -282,138 +438,6 @@ deleteBtn.MouseButton1Click:Connect(function()
   end
 end)
 
--- ===== SECTION 2: OPTIONS =====
-local optionContent = newCleanSub("Options", 120)
-
--- Row 1: Delay + Auto Kill
-local row1 = Instance.new("Frame")
-row1.BackgroundTransparency = 1
-row1.Size = UDim2.new(1, 0, 0, 34)
-row1.LayoutOrder = 1
-row1.Parent = optionContent
-
-local row1Layout = Instance.new("UIListLayout", row1)
-row1Layout.FillDirection = Enum.FillDirection.Horizontal
-row1Layout.Padding = UDim.new(0, 8)
-row1Layout.VerticalAlignment = Enum.VerticalAlignment.Center
-
-local delayBox = Instance.new("TextBox")
-delayBox.Size = UDim2.new(0, 60, 1, 0)
-delayBox.BackgroundColor3 = Theme.card
-delayBox.TextColor3 = Theme.text
-delayBox.Text = tostring(Settings.loopDelay)
-delayBox.Font = Enum.Font.Gotham
-delayBox.TextSize = 14
-delayBox.TextXAlignment = Enum.TextXAlignment.Center
-delayBox.ClearTextOnFocus = false
-delayBox.Parent = row1
-corner(delayBox, 8); stroke(delayBox, Theme.accA, 1).Transparency = .5
-
-local killBtn = Instance.new("TextButton")
-killBtn.Text = "Auto respawn/kill: " .. (Settings.autoKill and "ON" or "OFF")
-killBtn.Font = Enum.Font.GothamSemibold
-killBtn.TextSize = 14
-killBtn.TextColor3 = Theme.text
-killBtn.BackgroundColor3 = Settings.autoKill and Theme.accA or Theme.card
-killBtn.Size = UDim2.new(1, -68, 1, 0)
-killBtn.AutoButtonColor = false
-killBtn.Parent = row1
-corner(killBtn, 8); stroke(killBtn, Theme.accA, 1).Transparency = .45
-
--- Row 2: Dance + Auto Rejoin + Delay
-local row2 = Instance.new("Frame")
-row2.BackgroundTransparency = 1
-row2.Size = UDim2.new(1, 0, 0, 34)
-row2.LayoutOrder = 2
-row2.Parent = optionContent
-
-local row2Layout = Instance.new("UIListLayout", row2)
-row2Layout.FillDirection = Enum.FillDirection.Horizontal
-row2Layout.Padding = UDim.new(0, 8)
-row2Layout.VerticalAlignment = Enum.VerticalAlignment.Center
-
-local danceBtn = Instance.new("TextButton")
-danceBtn.Text = "3x/8stud: " .. (Settings.moveDance and "ON" or "OFF")
-danceBtn.Font = Enum.Font.GothamSemibold
-danceBtn.TextSize = 14
-danceBtn.TextColor3 = Theme.text
-danceBtn.BackgroundColor3 = Settings.moveDance and Theme.accA or Theme.card
-danceBtn.Size = UDim2.new(0, 110, 1, 0)
-danceBtn.AutoButtonColor = false
-danceBtn.Parent = row2
-corner(danceBtn, 8)
-
-local rjBtn = Instance.new("TextButton")
-rjBtn.Text = "Auto rejoin: " .. (Settings.autoRJ and "ON" or "OFF")
-rjBtn.Font = Enum.Font.GothamSemibold
-rjBtn.TextSize = 14
-rjBtn.TextColor3 = Theme.text
-rjBtn.BackgroundColor3 = Settings.autoRJ and Theme.accA or Theme.card
-rjBtn.Size = UDim2.new(1, -178, 1, 0)
-rjBtn.AutoButtonColor = false
-rjBtn.Parent = row2
-corner(rjBtn, 8)
-
-local rjDelayBox = Instance.new("TextBox")
-rjDelayBox.Size = UDim2.new(0, 60, 1, 0)
-rjDelayBox.BackgroundColor3 = Theme.card
-rjDelayBox.TextColor3 = Theme.text
-rjDelayBox.Text = tostring(Settings.autoRJDelay)
-rjDelayBox.Font = Enum.Font.Gotham
-rjDelayBox.TextSize = 14
-rjDelayBox.TextXAlignment = Enum.TextXAlignment.Center
-rjDelayBox.ClearTextOnFocus = false
-rjDelayBox.Parent = row2
-corner(rjDelayBox, 8); stroke(rjDelayBox, Theme.accA, 1).Transparency = .5
-
--- ===== SECTION 3: AUTO LOOP =====
-local loopContent = newCleanSub("Auto Loop", 80)
-
-local loopBtn = Instance.new("TextButton")
-loopBtn.Text = "Auto Loop: " .. (Settings.autoLoop and "ON" or "OFF")
-loopBtn.Font = Enum.Font.GothamSemibold
-loopBtn.TextSize = 16
-loopBtn.TextColor3 = Theme.text
-loopBtn.BackgroundColor3 = Settings.autoLoop and Theme.accA or Theme.card
-loopBtn.Size = UDim2.new(1, 0, 0, 40)
-loopBtn.AutoButtonColor = false
-loopBtn.Parent = loopContent
-corner(loopBtn, 10); stroke(loopBtn, Theme.accB, 1).Transparency = .3
-
--- ===== LOGIC & EVENT HANDLERS =====
-local looping = false
-
--- Settings handlers
-delayBox.FocusLost:Connect(function()
-  local v = tonumber(delayBox.Text) or Settings.loopDelay
-  v = math.clamp(math.floor(v + 0.5), 1, 60)
-  Settings.loopDelay = v
-  delayBox.Text = tostring(v)
-  saveSettings()
-end)
-
-killBtn.MouseButton1Click:Connect(function()
-  Settings.autoKill = not Settings.autoKill
-  killBtn.Text = "Auto respawn/kill: " .. (Settings.autoKill and "ON" or "OFF")
-  killBtn.BackgroundColor3 = Settings.autoKill and Theme.accA or Theme.card
-  saveSettings()
-end)
-
-danceBtn.MouseButton1Click:Connect(function()
-  Settings.moveDance = not Settings.moveDance
-  danceBtn.Text = "3x/8stud: " .. (Settings.moveDance and "ON" or "OFF")
-  danceBtn.BackgroundColor3 = Settings.moveDance and Theme.accA or Theme.card
-  saveSettings()
-end)
-
-rjDelayBox.FocusLost:Connect(function()
-  local v = tonumber(rjDelayBox.Text) or Settings.autoRJDelay
-  v = math.clamp(math.floor(v + 0.5), 2, 120)
-  Settings.autoRJDelay = v
-  rjDelayBox.Text = tostring(v)
-  saveSettings()
-end)
-
 -- Auto Rejoin Logic
 local PlaceId, JobId = game.PlaceId, game.JobId
 local rjOn, rjConn = false, nil
@@ -428,7 +452,7 @@ local function doRejoin()
   end
 end
 
-local function startRejoin()
+function startRejoin()
   if rjConn then rjConn:Disconnect() end
   rjConn = GuiService.ErrorMessageChanged:Connect(function() task.defer(doRejoin) end)
   rjOn = true
@@ -445,28 +469,14 @@ local function startRejoin()
   end)
 end
 
-local function stopRejoin()
+function stopRejoin()
   rjOn = false
   if rjConn then rjConn:Disconnect(); rjConn = nil end
 end
 
-rjBtn.MouseButton1Click:Connect(function()
-  Settings.autoRJ = not Settings.autoRJ
-  rjBtn.Text = "Auto rejoin: " .. (Settings.autoRJ and "ON" or "OFF")
-  rjBtn.BackgroundColor3 = Settings.autoRJ and Theme.accA or Theme.card
-  saveSettings()
-  
-  if Settings.autoRJ then startRejoin() else stopRejoin() end
-end)
-
 -- Auto Loop Logic
-local function setAutoLoop(enabled)
-  Settings.autoLoop = enabled
-  loopBtn.Text = "Auto Loop: " .. (Settings.autoLoop and "ON" or "OFF")
-  loopBtn.BackgroundColor3 = Settings.autoLoop and Theme.accA or Theme.card
-  saveSettings()
-
-  if Settings.autoLoop and not looping then
+function setAutoLoop(enabled)
+  if enabled and not looping then
     looping = true
     task.spawn(function()
       while Settings.autoLoop do
@@ -500,10 +510,6 @@ local function setAutoLoop(enabled)
   end
 end
 
-loopBtn.MouseButton1Click:Connect(function()
-  setAutoLoop(not Settings.autoLoop)
-end)
-
 -- ===== INITIALIZATION =====
 loadWaypoints()
 refreshWaypoints()
@@ -511,4 +517,4 @@ refreshWaypoints()
 if Settings.autoRJ then startRejoin() end
 if Settings.autoLoop then setAutoLoop(true) end
 
-print("[danuu • Manual] Clean version loaded ✓")
+print("[danuu • Manual] Professional layout loaded ✓")
