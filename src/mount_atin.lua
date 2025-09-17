@@ -1,5 +1,4 @@
--- src/mount_atin.lua (Simple Collapse Fix - Always Start Collapsed)
--- Mount Atin : Checkpoint + Poseidon Quest (rapi + aman + simple collapsible)
+-- src/mount_atin.lua (Complete Fixed Version - All Features + Reliable Collapse)
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
 
@@ -23,16 +22,33 @@ local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim
 local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.6; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 
 ----------------------------------------------------------------
--- SIMPLE COLLAPSE SETUP (ALWAYS START COLLAPSED)
+-- RELIABLE COLLAPSE SETUP
 ----------------------------------------------------------------
 local secRoot = UI.MountSections["Mount Atin"]
-local isMinimized = true -- ALWAYS START COLLAPSED
+local isCollapsed = true
+
+-- Force reset function
+local function forceCollapsedState()
+  secRoot.Size = UDim2.new(1, -4, 0, 50)
+  isCollapsed = true
+end
+
+-- Hook to main GUI to reset state on show/hide
+local mainGui = LP.PlayerGui:FindFirstChild("danuu_hub_ui")
+if mainGui then
+  mainGui:GetPropertyChangedSignal("Enabled"):Connect(function()
+    if mainGui.Enabled then
+      task.wait(0.1)
+      forceCollapsedState()
+    end
+  end)
+end
 
 -- Create Main Toggle Button
 local mainToggle = Instance.new("TextButton")
 mainToggle.Name = "MainToggle"
 mainToggle.AutoButtonColor = false
-mainToggle.Text = "+ Mount Atin" -- Always start with +
+mainToggle.Text = "+ Mount Atin"
 mainToggle.Font = Enum.Font.GothamBold
 mainToggle.TextSize = 16
 mainToggle.TextColor3 = Theme.accA
@@ -43,13 +59,13 @@ mainToggle.Parent = secRoot
 corner(mainToggle, 10)
 stroke(mainToggle, Theme.accA, 1).Transparency = .4
 
--- Container for all content
+-- Content Container
 local contentContainer = Instance.new("Frame")
 contentContainer.Name = "ContentContainer"
 contentContainer.BackgroundTransparency = 1
 contentContainer.Size = UDim2.new(1, -8, 1, -52)
 contentContainer.Position = UDim2.fromOffset(4, 48)
-contentContainer.Visible = false -- ALWAYS START HIDDEN
+contentContainer.Visible = false
 contentContainer.Parent = secRoot
 
 local contentLayout = Instance.new("UIListLayout", contentContainer)
@@ -662,50 +678,34 @@ mkBtn("Auto Quest Poseidon", function()
 end)
 
 ----------------------------------------------------------------
--- SIMPLE TOGGLE FUNCTION WITH DYNAMIC SIZING
+-- RELIABLE TOGGLE FUNCTION
 ----------------------------------------------------------------
-local function toggleMinimize()
-  isMinimized = not isMinimized
-  contentContainer.Visible = not isMinimized
-  mainToggle.Text = (isMinimized and "+" or "–") .. " Mount Atin"
+local function toggle()
+  isCollapsed = not isCollapsed
+  contentContainer.Visible = not isCollapsed
+  mainToggle.Text = (isCollapsed and "+" or "–") .. " Mount Atin"
   
-  -- Dynamic sizing based on content
-  local targetHeight = 50 -- collapsed height
-  if not isMinimized then
-    -- Calculate content height dynamically
-    local totalHeight = 0
-    for _, child in pairs(contentContainer:GetChildren()) do
-      if child:IsA("Frame") then
-        totalHeight = totalHeight + child.AbsoluteSize.Y + 10
-      end
-    end
-    targetHeight = math.max(400, totalHeight + 60) -- minimum 400, or actual content + padding
-  end
-  
-  TweenService:Create(secRoot, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-    Size = UDim2.new(1, -4, 0, targetHeight)
-  }):Play()
-  
-  -- Handle dropdowns
-  if isMinimized then
+  if isCollapsed then
+    secRoot.Size = UDim2.new(1, -4, 0, 50)
     panel.Visible = false
     pPanel.Visible = false
   else
-    task.wait(0.35)
+    secRoot.Size = UDim2.new(1, -4, 0, 600) -- Fixed size to prevent spacing issues
+    task.wait(0.1)
     placePanel()
     placePPanel()
   end
 end
 
-mainToggle.MouseButton1Click:Connect(toggleMinimize)
+mainToggle.MouseButton1Click:Connect(toggle)
 
 ----------------------------------------------------------------
--- FORCE INITIAL STATE (ALWAYS COLLAPSED)
+-- FORCE INITIAL STATE
 ----------------------------------------------------------------
-secRoot.Size = UDim2.new(1, -4, 0, 50) -- Force collapsed size
-contentContainer.Visible = false -- Force hidden
-mainToggle.Text = "+ Mount Atin" -- Force + symbol
+forceCollapsedState()
+contentContainer.Visible = false
+mainToggle.Text = "+ Mount Atin"
 panel.Visible = false
 pPanel.Visible = false
 
-print("[danuu • Mount Atin] Simple collapse fix loaded - always starts collapsed ✓")
+print("[danuu • Mount Atin] Complete reliable collapse version loaded ✓")
