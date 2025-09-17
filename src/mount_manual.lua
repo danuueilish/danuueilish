@@ -1,4 +1,4 @@
--- src/mount_manual.lua (Clean Horizontal Layout Version)
+-- src/mount_manual.lua (Complete Version with Auto Loop)
 -- Manual Waypoints • Professional Layout with Toggle Switches
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Manual"] then return end
@@ -353,8 +353,8 @@ deleteBtn.AutoButtonColor = false
 deleteBtn.Parent = controlFrame
 corner(deleteBtn, 8)
 
--- ===== SECTION 2: OPTIONS (CLEAN HORIZONTAL LAYOUT) =====
-local optionContent = newCleanSub("Options", 220)
+-- ===== SECTION 2: OPTIONS (COMPLETE WITH AUTO LOOP) =====
+local optionContent = newCleanSub("Options", 250) -- Height increased for 5 rows
 
 -- Create all option rows with proper layout
 local delayRow, delayBox, _, setDelayState = createOptionRow(
@@ -399,7 +399,8 @@ local rjRow, rjDelayBox, getRjState, setRjState = createOptionRow(
   end
 )
 
-local loopRow, _, getLoopState, setLoopState = createOptionRow(
+-- ===== AUTO LOOP ROW (ADDED) =====
+local autoLoopRow, _, getAutoLoopState, setAutoLoopState = createOptionRow(
   optionContent, "Auto Loop", false, nil, Settings.autoLoop,
   nil, function(state)
     Settings.autoLoop = state
@@ -408,8 +409,45 @@ local loopRow, _, getLoopState, setLoopState = createOptionRow(
   end
 )
 
--- ===== LOGIC & EVENT HANDLERS =====
+-- ===== AUTO LOOP LOGIC =====
 local looping = false
+
+function setAutoLoop(enabled)
+  if enabled and not looping then
+    looping = true
+    task.spawn(function()
+      while Settings.autoLoop do
+        if #waypoints == 0 then
+          task.wait(0.15)
+        else
+          local delay = math.clamp(Settings.loopDelay or 3, 1, 60)
+          for i = 1, #waypoints do
+            if not Settings.autoLoop then break end
+            local pos = waypoints[i]
+            safeTP(pos)
+            if Settings.moveDance then dance3(pos) end
+            
+            local startTime = tick()
+            while Settings.autoLoop and tick() - startTime < delay do
+              task.wait(0.05)
+            end
+            
+            if Settings.autoLoop and i == #waypoints and Settings.autoKill then
+              local hum = select(2, HRP())
+              if hum then hum.Health = 0 end
+              LP.CharacterAdded:Wait()
+              task.wait(0.8)
+            end
+          end
+        end
+        task.wait(0.05)
+      end
+      looping = false
+    end)
+  end
+end
+
+-- ===== LOGIC & EVENT HANDLERS =====
 
 -- Waypoint button logic
 local lastPos, lastTime = nil, 0
@@ -474,42 +512,6 @@ function stopRejoin()
   if rjConn then rjConn:Disconnect(); rjConn = nil end
 end
 
--- Auto Loop Logic
-function setAutoLoop(enabled)
-  if enabled and not looping then
-    looping = true
-    task.spawn(function()
-      while Settings.autoLoop do
-        if #waypoints == 0 then
-          task.wait(0.15)
-        else
-          local delay = math.clamp(Settings.loopDelay or 3, 1, 60)
-          for i = 1, #waypoints do
-            if not Settings.autoLoop then break end
-            local pos = waypoints[i]
-            safeTP(pos)
-            if Settings.moveDance then dance3(pos) end
-            
-            local startTime = tick()
-            while Settings.autoLoop and tick() - startTime < delay do
-              task.wait(0.05)
-            end
-            
-            if Settings.autoLoop and i == #waypoints and Settings.autoKill then
-              local hum = select(2, HRP())
-              if hum then hum.Health = 0 end
-              LP.CharacterAdded:Wait()
-              task.wait(0.8)
-            end
-          end
-        end
-        task.wait(0.05)
-      end
-      looping = false
-    end)
-  end
-end
-
 -- ===== INITIALIZATION =====
 loadWaypoints()
 refreshWaypoints()
@@ -517,4 +519,4 @@ refreshWaypoints()
 if Settings.autoRJ then startRejoin() end
 if Settings.autoLoop then setAutoLoop(true) end
 
-print("[danuu • Manual] Professional layout loaded ✓")
+print("[danuu • Manual] Complete version with Auto Loop loaded ✓")
