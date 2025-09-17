@@ -1,5 +1,5 @@
--- src/mount_atin.lua (Fixed Dropdown Positioning Version)
--- Mount Atin : Checkpoint + Poseidon Quest (rapi + aman + collapsible + fixed dropdown)
+-- src/mount_atin.lua (Final Fixed Version with Persistent State)
+-- Mount Atin : Checkpoint + Poseidon Quest (rapi + aman + collapsible + persistent state)
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
 
@@ -23,16 +23,47 @@ local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim
 local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.6; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 
 ----------------------------------------------------------------
+-- FILE SYSTEM & PERSISTENT STATE
+----------------------------------------------------------------
+local fileOK = (writefile and readfile and isfile) and true or false
+local Http = game:GetService("HttpService")
+local COLLAPSE_STATE_FILE = "danuu_mount_atin_state.json"
+
+local function saveCollapseState(isMin)
+  if not fileOK then return end
+  pcall(function()
+    writefile(COLLAPSE_STATE_FILE, Http:JSONEncode({
+      isMinimized = isMin,
+      timestamp = tick()
+    }))
+  end)
+end
+
+local function loadCollapseState()
+  -- First time execution: always start collapsed
+  if not fileOK or not isfile(COLLAPSE_STATE_FILE) then
+    return true -- default collapsed
+  end
+  
+  local ok, data = pcall(function() return Http:JSONDecode(readfile(COLLAPSE_STATE_FILE)) end)
+  if ok and typeof(data)=="table" and type(data.isMinimized)=="boolean" then
+    return data.isMinimized
+  end
+  
+  return true -- default collapsed if error
+end
+
+----------------------------------------------------------------
 -- EXPAND/COLLAPSE SETUP
 ----------------------------------------------------------------
 local secRoot = UI.MountSections["Mount Atin"]
-local isMinimized = true -- START MINIMIZED BY DEFAULT
+local isMinimized = loadCollapseState() -- Load saved state
 
 -- Create Main Toggle Button (always visible at top)
 local mainToggle = Instance.new("TextButton")
 mainToggle.Name = "MainToggle"
 mainToggle.AutoButtonColor = false
-mainToggle.Text = "+ Mount Atin"
+mainToggle.Text = isMinimized and "+ Mount Atin" or "– Mount Atin"
 mainToggle.Font = Enum.Font.GothamBold
 mainToggle.TextSize = 16
 mainToggle.TextColor3 = Theme.accA
@@ -43,13 +74,13 @@ mainToggle.Parent = secRoot
 corner(mainToggle, 10)
 stroke(mainToggle, Theme.accA, 1).Transparency = .4
 
--- Container for all content (initially hidden)
+-- Container for all content
 local contentContainer = Instance.new("Frame")
 contentContainer.Name = "ContentContainer"
 contentContainer.BackgroundTransparency = 1
 contentContainer.Size = UDim2.new(1, -8, 1, -52)
 contentContainer.Position = UDim2.fromOffset(4, 48)
-contentContainer.Visible = false -- START HIDDEN
+contentContainer.Visible = not isMinimized -- Set based on loaded state
 contentContainer.Parent = secRoot
 
 local contentLayout = Instance.new("UIListLayout", contentContainer)
@@ -64,7 +95,6 @@ local function HRP()
   return ch:FindFirstChild("HumanoidRootPart"), ch:FindFirstChildOfClass("Humanoid")
 end
 
--- Teleport aman: pad sementara + nolkan velocity biar gak jatuh
 local function safeTP(pos)
   local hrp, hum = HRP(); if not hrp then return false end
   local pad = Instance.new("Part")
@@ -120,13 +150,13 @@ local function posFrom(inst)
 end
 
 ----------------------------------------------------------------
--- UI SUB-SECTIONS (Modified to use contentContainer)
+-- UI SUB-SECTIONS
 ----------------------------------------------------------------
 local function newSub(titleText)
   local box = Instance.new("Frame")
   box.BackgroundColor3 = Theme.card
   box.Size = UDim2.new(1,-16,0,60)
-  box.Parent = contentContainer -- Changed from secRoot to contentContainer
+  box.Parent = contentContainer
   corner(box,10); stroke(box,Theme.accA,1).Transparency=.5
 
   local title = Instance.new("TextLabel")
@@ -160,16 +190,14 @@ local function newSub(titleText)
 end
 
 ----------------------------------------------------------------
--- SUB: CHECKPOINT (dropdown kanan + Go To)
+-- SUB: CHECKPOINT
 ----------------------------------------------------------------
 local cpInner = newSub("Checkpoint")
 
--- Row: [dropdown + GoTo]
 local row = Instance.new("Frame"); row.BackgroundTransparency=1; row.Size=UDim2.new(1,0,0,36); row.Parent=cpInner
 local h = Instance.new("UIListLayout", row)
 h.FillDirection=Enum.FillDirection.Horizontal; h.Padding=UDim.new(0,8); h.VerticalAlignment=Enum.VerticalAlignment.Center
 
--- container kanan full width
 local right = Instance.new("Frame")
 right.BackgroundTransparency=1; right.Size=UDim2.new(1,0,1,0); right.Parent=row
 local hr = Instance.new("UIListLayout", right)
@@ -177,7 +205,6 @@ hr.FillDirection=Enum.FillDirection.Horizontal; hr.Padding=UDim.new(0,8)
 hr.HorizontalAlignment = Enum.HorizontalAlignment.Left
 hr.VerticalAlignment = Enum.VerticalAlignment.Center
 
--- Dropdown button
 local dd = Instance.new("TextButton")
 dd.AutoButtonColor=false; dd.Text="Pilih checkpoint..."
 dd.Font=Enum.Font.GothamSemibold; dd.TextSize=14; dd.TextColor3=Theme.text
@@ -185,10 +212,9 @@ dd.TextWrapped=false; dd.TextTruncate=Enum.TextTruncate.AtEnd
 dd.BackgroundColor3=Theme.card; dd.Size=UDim2.new(0,260,1,0); dd.Parent=right
 corner(dd,8); stroke(dd,Theme.accA,1).Transparency=.45
 
--- Panel list (ditaruh di contentContainer agar positioning benar)
 local panel = Instance.new("Frame")
 panel.Visible=false; panel.BackgroundColor3=Theme.card
-panel.Size=UDim2.new(0,260,0,184); panel.Parent=contentContainer -- FIXED: Parent ke contentContainer
+panel.Size=UDim2.new(0,260,0,184); panel.Parent=contentContainer
 panel.ClipsDescendants=true; panel.ZIndex=5
 corner(panel,8); stroke(panel,Theme.accB,1).Transparency=.35
 
@@ -201,9 +227,8 @@ l:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
   listScroll.CanvasSize=UDim2.new(0,0,0,l.AbsoluteContentSize.Y+8)
 end)
 
--- FIXED: Posisi dropdown list calculation
 local function placePanel()
-  if not contentContainer.Visible then return end -- Don't position if collapsed
+  if not contentContainer.Visible then return end
   
   local containerAbs = contentContainer.AbsolutePosition
   local containerSize = contentContainer.AbsoluteSize
@@ -223,7 +248,6 @@ local function placePanel()
   panel.Position = UDim2.fromOffset(x, y)
 end
 
--- Data CP
 local checkpoints = {
   {"Basecamp",               Vector3.new(  16.501,   54.470, -1082.821)},
   {"Summit Leaderboard",     Vector3.new(  31.554,   53.176, -1030.635)},
@@ -287,7 +311,6 @@ UIS.InputBegan:Connect(function(input,gp)
   if not inDD and not inPanel then panel.Visible=false end
 end)
 
--- Tombol Go To
 local go = Instance.new("TextButton")
 go.AutoButtonColor=false; go.Text="Go To"
 go.Font=Enum.Font.GothamSemibold; go.TextSize=14; go.TextColor3=Theme.text
@@ -298,7 +321,6 @@ go.MouseButton1Click:Connect(function()
   safeTP(checkpoints[selectedIndex][2])
 end)
 
--- Catatan
 do
   local note = Instance.new("TextLabel")
   note.BackgroundTransparency=1; note.TextWrapped=true; note.TextColor3=Theme.text2; note.Font=Enum.Font.Gotham; note.TextSize=13
@@ -309,13 +331,11 @@ end
 ----------------------------------------------------------------
 -- SUB: AUTO SUMMIT
 ----------------------------------------------------------------
-local Http            = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local GuiService      = game:GetService("GuiService")
 
 local asInner = newSub("Auto Summit")
 
--- Cara Pakai
 do
   local t = Instance.new("TextLabel")
   t.BackgroundTransparency=1
@@ -328,7 +348,6 @@ do
   t.Parent = asInner
 end
 
--- Baris 1: [Box delay Auto Loop] [Toggle Auto Loop]
 local asRow1 = Instance.new("Frame"); asRow1.BackgroundTransparency=1; asRow1.Size=UDim2.new(1,0,0,34); asRow1.Parent=asInner
 local asRow1Lay = Instance.new("UIListLayout", asRow1); asRow1Lay.FillDirection=Enum.FillDirection.Horizontal; asRow1Lay.Padding=UDim.new(0,8)
 
@@ -357,7 +376,6 @@ loopToggle.AutoButtonColor=false
 corner(loopToggle,8); stroke(loopToggle,Theme.accA,1).Transparency=.5
 loopToggle.Parent = asRow1
 
--- Baris 2: [Box delay Auto Rejoin] [Toggle Auto Rejoin]
 local asRow2 = Instance.new("Frame"); asRow2.BackgroundTransparency=1; asRow2.Size=UDim2.new(1,0,0,34); asRow2.Parent=asInner
 local asRow2Lay = Instance.new("UIListLayout", asRow2); asRow2Lay.FillDirection=Enum.FillDirection.Horizontal; asRow2Lay.Padding=UDim.new(0,8)
 
@@ -386,10 +404,7 @@ rjToggle.AutoButtonColor=false
 corner(rjToggle,8); stroke(rjToggle,Theme.accA,1).Transparency=.5
 rjToggle.Parent = asRow2
 
--- Logic Auto Summit
-local fileOK = (writefile and readfile and isfile) and true or false
 local AS_FILE = ("danuu_as_%s.json"):format(tostring(game.PlaceId))
-
 local summitPos = Vector3.new(781.809, 2162.143, 3920.971)
 
 local function summitDance(center)
@@ -468,7 +483,6 @@ loopToggle.MouseButton1Click:Connect(function()
   saveAS()
 end)
 
--- Auto Rejoin helpers
 local function doRJ()
   local placeId, jobId = game.PlaceId, game.JobId
   if #Players:GetPlayers() <= 1 then
@@ -497,7 +511,6 @@ rjToggle.MouseButton1Click:Connect(function()
   end
 end)
 
--- Worker loop
 task.spawn(function()
   while secRoot.Parent do
     if state.loopOn then
@@ -524,7 +537,7 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------------------
--- SUB: POSEIDON QUEST (dropdown manual + Auto)
+-- SUB: POSEIDON QUEST
 ----------------------------------------------------------------
 local pq = newSub("Poseidon Quest")
 
@@ -533,7 +546,6 @@ status.BackgroundTransparency=1; status.TextColor3=Theme.text2; status.Font=Enum
 status.Text="Status: —"; status.Size=UDim2.new(1,0,0,22); status.Parent=pq
 local function setStatus(txt, good) status.Text = "Status: "..txt; status.TextColor3 = good and Theme.good or Theme.text2 end
 
--- ROW: [Dropdown manual] [Go To]
 local prow = Instance.new("Frame"); prow.BackgroundTransparency=1; prow.Size=UDim2.new(1,0,0,36); prow.Parent=pq
 local pl = Instance.new("UIListLayout", prow)
 pl.FillDirection=Enum.FillDirection.Horizontal; pl.Padding=UDim.new(0,8); pl.VerticalAlignment=Enum.VerticalAlignment.Center
@@ -561,10 +573,9 @@ pGo.Font=Enum.Font.GothamSemibold; pGo.TextSize=14; pGo.TextColor3=Theme.text
 pGo.BackgroundColor3=Theme.accA; pGo.Size=UDim2.new(0,120,1,0); pGo.Parent=prow
 corner(pGo,8); stroke(pGo,Theme.accB,1).Transparency=.3
 
--- Panel list manual (FIXED: Parent ke contentContainer)
 local pPanel = Instance.new("Frame")
 pPanel.Visible=false; pPanel.BackgroundColor3=Theme.card
-pPanel.Size=UDim2.new(0,260,0,184); pPanel.Parent=contentContainer -- FIXED: Parent ke contentContainer
+pPanel.Size=UDim2.new(0,260,0,184); pPanel.Parent=contentContainer
 pPanel.ClipsDescendants=true; pPanel.ZIndex=5
 corner(pPanel,8); stroke(pPanel,Theme.accB,1).Transparency=.35
 
@@ -577,9 +588,8 @@ pUIL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
   pList.CanvasSize=UDim2.new(0,0,0,pUIL.AbsoluteContentSize.Y+8)
 end)
 
--- FIXED: Posisi dropdown Poseidon calculation
 local function placePPanel()
-  if not contentContainer.Visible then return end -- Don't position if collapsed
+  if not contentContainer.Visible then return end
   
   local containerAbs = contentContainer.AbsolutePosition
   local containerSize = contentContainer.AbsoluteSize
@@ -637,7 +647,6 @@ pGo.MouseButton1Click:Connect(function()
   safeTP(pos)
 end)
 
--- Tombol Auto Quest
 local function mkBtn(txt, cb)
   local b=Instance.new("TextButton")
   b.AutoButtonColor=false; b.Text=txt; b.Font=Enum.Font.GothamSemibold; b.TextSize=14; b.TextColor3=Theme.text
@@ -681,26 +690,27 @@ mkBtn("Auto Quest Poseidon", function()
   else setStatus("Helmet tidak ditemukan.",false) end
 end)
 
--- FIXED: Toggle Function with proper dropdown handling
+----------------------------------------------------------------
+-- TOGGLE FUNCTION WITH PERSISTENT STATE
+----------------------------------------------------------------
 local function toggleMinimize()
   isMinimized = not isMinimized
   contentContainer.Visible = not isMinimized
   mainToggle.Text = (isMinimized and "+" or "–") .. " Mount Atin"
   
-  -- Smooth transition
+  -- Save state immediately
+  saveCollapseState(isMinimized)
+  
   local targetSize = isMinimized and UDim2.new(1, -4, 0, 50) or UDim2.new(1, -4, 0, 800)
   TweenService:Create(secRoot, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
     Size = targetSize
   }):Play()
   
-  -- Handle dropdowns properly
   if isMinimized then
-    -- Hide dropdowns when collapsing
     panel.Visible = false
     pPanel.Visible = false
   else
-    -- Recalculate positions when expanding
-    task.wait(0.35) -- Wait for tween to complete
+    task.wait(0.35)
     placePanel()
     placePPanel()
   end
@@ -708,11 +718,25 @@ end
 
 mainToggle.MouseButton1Click:Connect(toggleMinimize)
 
--- ===== INITIALIZATION =====
--- Set initial minimize state
-secRoot.Size = UDim2.new(1, -4, 0, 50) -- Start minimized
-contentContainer.Visible = false
+----------------------------------------------------------------
+-- INITIALIZATION WITH STATE RESTORE
+----------------------------------------------------------------
+if isMinimized then
+  secRoot.Size = UDim2.new(1, -4, 0, 50)
+  contentContainer.Visible = false
+  mainToggle.Text = "+ Mount Atin"
+else
+  secRoot.Size = UDim2.new(1, -4, 0, 800)
+  contentContainer.Visible = true
+  mainToggle.Text = "– Mount Atin"
+  task.defer(function()
+    task.wait(0.1)
+    placePanel()
+    placePPanel()
+  end)
+end
+
 panel.Visible = false
 pPanel.Visible = false
 
-print("[danuu • Mount Atin] Fixed dropdown positioning version loaded ✓")
+print("[danuu • Mount Atin] Final fixed persistent state version loaded ✓")
