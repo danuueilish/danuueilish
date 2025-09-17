@@ -1,5 +1,5 @@
--- src/mount_manual.lua (With Minimize Feature)
--- Manual Waypoints • Collapsible by Default
+-- src/mount_manual.lua (Final Fixed Version with Persistent State)
+-- Manual Waypoints • Professional Layout with Toggle Switches + Persistent State
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Manual"] then return end
 
@@ -25,7 +25,75 @@ local Theme = {
 local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p; return c end
 local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.6; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 
--- ===== HELPERS =====
+----------------------------------------------------------------
+-- FILE SYSTEM & PERSISTENT STATE
+----------------------------------------------------------------
+local CAN_FS = (writefile and readfile and isfile and makefolder) and true or false
+local function enc(t) return HttpService:JSONEncode(t) end
+local function dec(s) local ok,res=pcall(function() return HttpService:JSONDecode(s) end); return ok and res or nil end
+local function sread(path, fb) if CAN_FS and isfile(path) then local ok,dt=pcall(readfile,path); if ok and dt~="" then return dt end end; return fb end
+local function swrite(path, content) if CAN_FS then pcall(writefile,path,content) end end
+
+local COLLAPSE_STATE_FILE_MANUAL = "danuu_mount_manual_state.json"
+
+local function saveCollapseStateManual(isMin)
+  if not CAN_FS then return end
+  pcall(function()
+    swrite(COLLAPSE_STATE_FILE_MANUAL, enc({
+      isMinimized = isMin,
+      timestamp = tick()
+    }))
+  end)
+end
+
+local function loadCollapseStateManual()
+  if not CAN_FS or not isfile(COLLAPSE_STATE_FILE_MANUAL) then
+    return true -- default collapsed
+  end
+  
+  local data = dec(sread(COLLAPSE_STATE_FILE_MANUAL, ""))
+  if typeof(data)=="table" and type(data.isMinimized)=="boolean" then
+    return data.isMinimized
+  end
+  
+  return true -- default collapsed if error
+end
+
+----------------------------------------------------------------
+-- EXPAND/COLLAPSE SETUP
+----------------------------------------------------------------
+local secRoot = UI.MountSections["Manual"]
+local isMinimized = loadCollapseStateManual() -- Load saved state
+
+local mainToggle = Instance.new("TextButton")
+mainToggle.Name = "MainToggle"
+mainToggle.AutoButtonColor = false
+mainToggle.Text = isMinimized and "+ Manual Waypoints" or "– Manual Waypoints"
+mainToggle.Font = Enum.Font.GothamBold
+mainToggle.TextSize = 16
+mainToggle.TextColor3 = Theme.accA
+mainToggle.BackgroundColor3 = Theme.card
+mainToggle.Size = UDim2.new(1, -8, 0, 40)
+mainToggle.Position = UDim2.fromOffset(4, 4)
+mainToggle.Parent = secRoot
+corner(mainToggle, 10)
+stroke(mainToggle, Theme.accA, 1).Transparency = .4
+
+local contentContainer = Instance.new("Frame")
+contentContainer.Name = "ContentContainer"
+contentContainer.BackgroundTransparency = 1
+contentContainer.Size = UDim2.new(1, -8, 1, -52)
+contentContainer.Position = UDim2.fromOffset(4, 48)
+contentContainer.Visible = not isMinimized -- Set based on loaded state
+contentContainer.Parent = secRoot
+
+local contentLayout = Instance.new("UIListLayout", contentContainer)
+contentLayout.Padding = UDim.new(0, 10)
+contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+----------------------------------------------------------------
+-- HELPERS
+----------------------------------------------------------------
 local function HRP()
   local ch = LP.Character or LP.CharacterAdded:Wait()
   return ch:FindFirstChild("HumanoidRootPart"), ch:FindFirstChildOfClass("Humanoid")
@@ -53,66 +121,15 @@ local function dance3(center)
   end
 end
 
--- ===== FILE SYSTEM =====
-local CAN_FS = (writefile and readfile and isfile and makefolder) and true or false
-local function enc(t) return HttpService:JSONEncode(t) end
-local function dec(s) local ok,res=pcall(function() return HttpService:JSONDecode(s) end); return ok and res or nil end
-local function sread(path, fb) if CAN_FS and isfile(path) then local ok,dt=pcall(readfile,path); if ok and dt~="" then return dt end end; return fb end
-local function swrite(path, content) if CAN_FS then pcall(writefile,path,content) end end
-
--- ===== MINIMIZE FUNCTIONALITY =====
-local secRoot = UI.MountSections["Manual"]
-local isMinimized = true -- START MINIMIZED BY DEFAULT
-
--- Create Main Toggle Button (always visible at top)
-local mainToggle = Instance.new("TextButton")
-mainToggle.Name = "MainToggle"
-mainToggle.AutoButtonColor = false
-mainToggle.Text = "+ Manual Waypoints"
-mainToggle.Font = Enum.Font.GothamBold
-mainToggle.TextSize = 16
-mainToggle.TextColor3 = Theme.accA
-mainToggle.BackgroundColor3 = Theme.card
-mainToggle.Size = UDim2.new(1, -8, 0, 40)
-mainToggle.Position = UDim2.fromOffset(4, 4)
-mainToggle.Parent = secRoot
-corner(mainToggle, 10)
-stroke(mainToggle, Theme.accA, 1).Transparency = .4
-
--- Container for all content (initially hidden)
-local contentContainer = Instance.new("Frame")
-contentContainer.Name = "ContentContainer"
-contentContainer.BackgroundTransparency = 1
-contentContainer.Size = UDim2.new(1, -8, 1, -52)
-contentContainer.Position = UDim2.fromOffset(4, 48)
-contentContainer.Visible = false -- START HIDDEN
-contentContainer.Parent = secRoot
-
-local contentLayout = Instance.new("UIListLayout", contentContainer)
-contentLayout.Padding = UDim.new(0, 10)
-contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
--- Toggle Function
-local function toggleMinimize()
-  isMinimized = not isMinimized
-  contentContainer.Visible = not isMinimized
-  mainToggle.Text = (isMinimized and "+" or "–") .. " Manual Waypoints"
-  
-  -- Smooth transition
-  local targetSize = isMinimized and UDim2.new(1, -4, 0, 50) or UDim2.new(1, -4, 0, 680)
-  TweenService:Create(secRoot, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-    Size = targetSize
-  }):Play()
-end
-
-mainToggle.MouseButton1Click:Connect(toggleMinimize)
-
--- ===== CLEAN SUB-SECTION BUILDER (Modified for contentContainer) =====
+----------------------------------------------------------------
+-- CLEAN SUB-SECTION BUILDER
+----------------------------------------------------------------
 local function newCleanSub(titleText, height)
   local container = Instance.new("Frame")
   container.BackgroundColor3 = Theme.card
-  container.Size = UDim2.new(1, 0, 0, height or 200)
-  container.Parent = contentContainer -- Changed parent
+  container.Size = UDim2.new(1, -4, 0, height or 200)
+  container.Position = UDim2.fromOffset(2, 0)
+  container.Parent = contentContainer
   container.ClipsDescendants = true
   corner(container, 12)
   stroke(container, Theme.accA, 1).Transparency = .6
@@ -141,7 +158,9 @@ local function newCleanSub(titleText, height)
   return content, container
 end
 
--- ===== TOGGLE SWITCH BUILDER =====
+----------------------------------------------------------------
+-- TOGGLE SWITCH BUILDER
+----------------------------------------------------------------
 local function createToggleSwitch(parent, initialState, callback)
   local switchFrame = Instance.new("Frame")
   switchFrame.BackgroundColor3 = initialState and Theme.good or Color3.fromRGB(60, 60, 60)
@@ -188,7 +207,9 @@ local function createToggleSwitch(parent, initialState, callback)
   end
 end
 
--- ===== ROW BUILDER =====
+----------------------------------------------------------------
+-- ROW BUILDER
+----------------------------------------------------------------
 local function createOptionRow(parent, labelText, hasInputBox, initialValue, toggleState, onInputChange, onToggleChange)
   local row = Instance.new("Frame")
   row.BackgroundTransparency = 1
@@ -235,7 +256,9 @@ local function createOptionRow(parent, labelText, hasInputBox, initialValue, tog
   return row, inputBox, getState, setState
 end
 
--- ===== SETTINGS MANAGEMENT =====
+----------------------------------------------------------------
+-- SETTINGS MANAGEMENT
+----------------------------------------------------------------
 local SETTINGS_FILE = "danuu_manual_settings.json"
 local WP_FILE = ("danuu_manual_wp_%s.json"):format(tostring(game.PlaceId))
 
@@ -268,11 +291,11 @@ local function saveWaypoints()
   swrite(WP_FILE, enc(out))
 end
 
--- ===== SECTION 1: WAYPOINTS =====
+----------------------------------------------------------------
+-- SECTION 1: WAYPOINTS
+----------------------------------------------------------------
 local waypointContent = newCleanSub("Waypoints", 180)
-waypointContent.Parent.LayoutOrder = 1
 
--- [Waypoints List Code - SAMA SEPERTI SEBELUMNYA]
 local listFrame = Instance.new("Frame")
 listFrame.BackgroundColor3 = Theme.bg
 listFrame.Size = UDim2.new(1, 0, 1, -50)
@@ -360,7 +383,6 @@ local function refreshWaypoints()
   end
 end
 
--- Control Buttons
 local controlFrame = Instance.new("Frame")
 controlFrame.BackgroundTransparency = 1
 controlFrame.Size = UDim2.new(1, 0, 0, 32)
@@ -395,11 +417,11 @@ deleteBtn.AutoButtonColor = false
 deleteBtn.Parent = controlFrame
 corner(deleteBtn, 8)
 
--- ===== SECTION 2: OPTIONS =====
+----------------------------------------------------------------
+-- SECTION 2: OPTIONS (COMPLETE WITH AUTO LOOP)
+----------------------------------------------------------------
 local optionContent = newCleanSub("Options", 250)
-optionContent.Parent.LayoutOrder = 2
 
--- [All option rows code - SAMA SEPERTI SEBELUMNYA]
 local delayRow, delayBox, _, setDelayState = createOptionRow(
   optionContent, "Delay Teleport", true, Settings.loopDelay, false, 
   function(text)
@@ -451,7 +473,9 @@ local autoLoopRow, _, getAutoLoopState, setAutoLoopState = createOptionRow(
   end
 )
 
--- ===== AUTO LOOP LOGIC =====
+----------------------------------------------------------------
+-- AUTO LOOP LOGIC
+----------------------------------------------------------------
 local looping = false
 
 function setAutoLoop(enabled)
@@ -489,7 +513,9 @@ function setAutoLoop(enabled)
   end
 end
 
--- ===== EVENT HANDLERS =====
+----------------------------------------------------------------
+-- EVENT HANDLERS
+----------------------------------------------------------------
 local lastPos, lastTime = nil, 0
 local function canInsert(pos)
   if not lastPos then return true end
@@ -516,7 +542,9 @@ deleteBtn.MouseButton1Click:Connect(function()
   end
 end)
 
--- Auto Rejoin Logic
+----------------------------------------------------------------
+-- AUTO REJOIN LOGIC
+----------------------------------------------------------------
 local PlaceId, JobId = game.PlaceId, game.JobId
 local rjOn, rjConn = false, nil
 
@@ -552,9 +580,37 @@ function stopRejoin()
   if rjConn then rjConn:Disconnect(); rjConn = nil end
 end
 
--- ===== INITIALIZATION =====
--- Set initial minimize state
-secRoot.Size = UDim2.new(1, -4, 0, 50) -- Start minimized
+----------------------------------------------------------------
+-- TOGGLE FUNCTION WITH PERSISTENT STATE
+----------------------------------------------------------------
+local function toggleMinimize()
+  isMinimized = not isMinimized
+  contentContainer.Visible = not isMinimized
+  mainToggle.Text = (isMinimized and "+" or "–") .. " Manual Waypoints"
+  
+  -- Save state immediately
+  saveCollapseStateManual(isMinimized)
+  
+  local targetSize = isMinimized and UDim2.new(1, -4, 0, 50) or UDim2.new(1, -4, 0, 680)
+  TweenService:Create(secRoot, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+    Size = targetSize
+  }):Play()
+end
+
+mainToggle.MouseButton1Click:Connect(toggleMinimize)
+
+----------------------------------------------------------------
+-- INITIALIZATION WITH STATE RESTORE
+----------------------------------------------------------------
+if isMinimized then
+  secRoot.Size = UDim2.new(1, -4, 0, 50)
+  contentContainer.Visible = false
+  mainToggle.Text = "+ Manual Waypoints"
+else
+  secRoot.Size = UDim2.new(1, -4, 0, 680)
+  contentContainer.Visible = true
+  mainToggle.Text = "– Manual Waypoints"
+end
 
 loadWaypoints()
 refreshWaypoints()
@@ -562,4 +618,4 @@ refreshWaypoints()
 if Settings.autoRJ then startRejoin() end
 if Settings.autoLoop then setAutoLoop(true) end
 
-print("[danuu • Manual] Collapsible version loaded ✓")
+print("[danuu • Manual] Final fixed persistent state version loaded ✓")
