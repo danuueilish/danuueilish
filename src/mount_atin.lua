@@ -1,5 +1,5 @@
--- src/mount_atin.lua (Final Fixed Version with Persistent State)
--- Mount Atin : Checkpoint + Poseidon Quest (rapi + aman + collapsible + persistent state)
+-- src/mount_atin.lua (Simple Collapse Fix - Always Start Collapsed)
+-- Mount Atin : Checkpoint + Poseidon Quest (rapi + aman + simple collapsible)
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
 
@@ -23,47 +23,16 @@ local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim
 local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.6; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 
 ----------------------------------------------------------------
--- FILE SYSTEM & PERSISTENT STATE
-----------------------------------------------------------------
-local fileOK = (writefile and readfile and isfile) and true or false
-local Http = game:GetService("HttpService")
-local COLLAPSE_STATE_FILE = "danuu_mount_atin_state.json"
-
-local function saveCollapseState(isMin)
-  if not fileOK then return end
-  pcall(function()
-    writefile(COLLAPSE_STATE_FILE, Http:JSONEncode({
-      isMinimized = isMin,
-      timestamp = tick()
-    }))
-  end)
-end
-
-local function loadCollapseState()
-  -- First time execution: always start collapsed
-  if not fileOK or not isfile(COLLAPSE_STATE_FILE) then
-    return true -- default collapsed
-  end
-  
-  local ok, data = pcall(function() return Http:JSONDecode(readfile(COLLAPSE_STATE_FILE)) end)
-  if ok and typeof(data)=="table" and type(data.isMinimized)=="boolean" then
-    return data.isMinimized
-  end
-  
-  return true -- default collapsed if error
-end
-
-----------------------------------------------------------------
--- EXPAND/COLLAPSE SETUP
+-- SIMPLE COLLAPSE SETUP (ALWAYS START COLLAPSED)
 ----------------------------------------------------------------
 local secRoot = UI.MountSections["Mount Atin"]
-local isMinimized = loadCollapseState() -- Load saved state
+local isMinimized = true -- ALWAYS START COLLAPSED
 
--- Create Main Toggle Button (always visible at top)
+-- Create Main Toggle Button
 local mainToggle = Instance.new("TextButton")
 mainToggle.Name = "MainToggle"
 mainToggle.AutoButtonColor = false
-mainToggle.Text = isMinimized and "+ Mount Atin" or "– Mount Atin"
+mainToggle.Text = "+ Mount Atin" -- Always start with +
 mainToggle.Font = Enum.Font.GothamBold
 mainToggle.TextSize = 16
 mainToggle.TextColor3 = Theme.accA
@@ -80,7 +49,7 @@ contentContainer.Name = "ContentContainer"
 contentContainer.BackgroundTransparency = 1
 contentContainer.Size = UDim2.new(1, -8, 1, -52)
 contentContainer.Position = UDim2.fromOffset(4, 48)
-contentContainer.Visible = not isMinimized -- Set based on loaded state
+contentContainer.Visible = false -- ALWAYS START HIDDEN
 contentContainer.Parent = secRoot
 
 local contentLayout = Instance.new("UIListLayout", contentContainer)
@@ -331,8 +300,9 @@ end
 ----------------------------------------------------------------
 -- SUB: AUTO SUMMIT
 ----------------------------------------------------------------
+local Http = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
-local GuiService      = game:GetService("GuiService")
+local GuiService = game:GetService("GuiService")
 
 local asInner = newSub("Auto Summit")
 
@@ -404,6 +374,7 @@ rjToggle.AutoButtonColor=false
 corner(rjToggle,8); stroke(rjToggle,Theme.accA,1).Transparency=.5
 rjToggle.Parent = asRow2
 
+local fileOK = (writefile and readfile and isfile) and true or false
 local AS_FILE = ("danuu_as_%s.json"):format(tostring(game.PlaceId))
 local summitPos = Vector3.new(781.809, 2162.143, 3920.971)
 
@@ -415,7 +386,7 @@ local function summitDance(center)
   for _=1,3 do
     hrp.CFrame = CFrame.new(center + dir*R + Vector3.new(0,2.4,0)); task.wait(0.12)
     hrp.CFrame = CFrame.new(center - dir*R + Vector3.new(0,2.4,0)); task.wait(0.12)
-    hrp.CFrame = CFrame.new(center + Vector3.new(0,2.4,0));         task.wait(0.12)
+    hrp.CFrame = CFrame.new(center + Vector3.new(0,2.4,0)); task.wait(0.12)
   end
 end
 
@@ -691,21 +662,31 @@ mkBtn("Auto Quest Poseidon", function()
 end)
 
 ----------------------------------------------------------------
--- TOGGLE FUNCTION WITH PERSISTENT STATE
+-- SIMPLE TOGGLE FUNCTION WITH DYNAMIC SIZING
 ----------------------------------------------------------------
 local function toggleMinimize()
   isMinimized = not isMinimized
   contentContainer.Visible = not isMinimized
   mainToggle.Text = (isMinimized and "+" or "–") .. " Mount Atin"
   
-  -- Save state immediately
-  saveCollapseState(isMinimized)
+  -- Dynamic sizing based on content
+  local targetHeight = 50 -- collapsed height
+  if not isMinimized then
+    -- Calculate content height dynamically
+    local totalHeight = 0
+    for _, child in pairs(contentContainer:GetChildren()) do
+      if child:IsA("Frame") then
+        totalHeight = totalHeight + child.AbsoluteSize.Y + 10
+      end
+    end
+    targetHeight = math.max(400, totalHeight + 60) -- minimum 400, or actual content + padding
+  end
   
-  local targetSize = isMinimized and UDim2.new(1, -4, 0, 50) or UDim2.new(1, -4, 0, 800)
   TweenService:Create(secRoot, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-    Size = targetSize
+    Size = UDim2.new(1, -4, 0, targetHeight)
   }):Play()
   
+  -- Handle dropdowns
   if isMinimized then
     panel.Visible = false
     pPanel.Visible = false
@@ -719,24 +700,12 @@ end
 mainToggle.MouseButton1Click:Connect(toggleMinimize)
 
 ----------------------------------------------------------------
--- INITIALIZATION WITH STATE RESTORE
+-- FORCE INITIAL STATE (ALWAYS COLLAPSED)
 ----------------------------------------------------------------
-if isMinimized then
-  secRoot.Size = UDim2.new(1, -4, 0, 50)
-  contentContainer.Visible = false
-  mainToggle.Text = "+ Mount Atin"
-else
-  secRoot.Size = UDim2.new(1, -4, 0, 800)
-  contentContainer.Visible = true
-  mainToggle.Text = "– Mount Atin"
-  task.defer(function()
-    task.wait(0.1)
-    placePanel()
-    placePPanel()
-  end)
-end
-
+secRoot.Size = UDim2.new(1, -4, 0, 50) -- Force collapsed size
+contentContainer.Visible = false -- Force hidden
+mainToggle.Text = "+ Mount Atin" -- Force + symbol
 panel.Visible = false
 pPanel.Visible = false
 
-print("[danuu • Mount Atin] Final fixed persistent state version loaded ✓")
+print("[danuu • Mount Atin] Simple collapse fix loaded - always starts collapsed ✓")
