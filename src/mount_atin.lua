@@ -1,11 +1,12 @@
--- src/mount_atin.lua
--- Mount Atin : Checkpoint + Poseidon Quest (rapi + aman)
+-- src/mount_atin.lua (With Expand/Collapse Feature)
+-- Mount Atin : Checkpoint + Poseidon Quest (rapi + aman + collapsible)
 local UI = _G.danuu_hub_ui
 if not UI or not UI.MountSections or not UI.MountSections["Mount Atin"] then return end
 
 local Players = game:GetService("Players")
-local UIS     = game:GetService("UserInputService")
-local LP      = Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local LP = Players.LocalPlayer
 
 local Theme = {
   bg    = Color3.fromRGB(24,20,40),
@@ -20,6 +21,55 @@ local Theme = {
 
 local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p; return c end
 local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.6; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
+
+----------------------------------------------------------------
+-- EXPAND/COLLAPSE SETUP
+----------------------------------------------------------------
+local secRoot = UI.MountSections["Mount Atin"]
+local isMinimized = true -- START MINIMIZED BY DEFAULT
+
+-- Create Main Toggle Button (always visible at top)
+local mainToggle = Instance.new("TextButton")
+mainToggle.Name = "MainToggle"
+mainToggle.AutoButtonColor = false
+mainToggle.Text = "+ Mount Atin"
+mainToggle.Font = Enum.Font.GothamBold
+mainToggle.TextSize = 16
+mainToggle.TextColor3 = Theme.accA
+mainToggle.BackgroundColor3 = Theme.card
+mainToggle.Size = UDim2.new(1, -8, 0, 40)
+mainToggle.Position = UDim2.fromOffset(4, 4)
+mainToggle.Parent = secRoot
+corner(mainToggle, 10)
+stroke(mainToggle, Theme.accA, 1).Transparency = .4
+
+-- Container for all content (initially hidden)
+local contentContainer = Instance.new("Frame")
+contentContainer.Name = "ContentContainer"
+contentContainer.BackgroundTransparency = 1
+contentContainer.Size = UDim2.new(1, -8, 1, -52)
+contentContainer.Position = UDim2.fromOffset(4, 48)
+contentContainer.Visible = false -- START HIDDEN
+contentContainer.Parent = secRoot
+
+local contentLayout = Instance.new("UIListLayout", contentContainer)
+contentLayout.Padding = UDim.new(0, 10)
+contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Toggle Function
+local function toggleMinimize()
+  isMinimized = not isMinimized
+  contentContainer.Visible = not isMinimized
+  mainToggle.Text = (isMinimized and "+" or "–") .. " Mount Atin"
+  
+  -- Smooth transition
+  local targetSize = isMinimized and UDim2.new(1, -4, 0, 50) or UDim2.new(1, -4, 0, 800)
+  TweenService:Create(secRoot, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+    Size = targetSize
+  }):Play()
+end
+
+mainToggle.MouseButton1Click:Connect(toggleMinimize)
 
 ----------------------------------------------------------------
 -- HELPERS
@@ -85,15 +135,13 @@ local function posFrom(inst)
 end
 
 ----------------------------------------------------------------
--- UI SUB-SECTIONS
+-- UI SUB-SECTIONS (Modified to use contentContainer)
 ----------------------------------------------------------------
-local secRoot = UI.MountSections["Mount Atin"]
-
 local function newSub(titleText)
   local box = Instance.new("Frame")
   box.BackgroundColor3 = Theme.card
   box.Size = UDim2.new(1,-16,0,60)
-  box.Parent = secRoot
+  box.Parent = contentContainer -- Changed from secRoot to contentContainer
   corner(box,10); stroke(box,Theme.accA,1).Transparency=.5
 
   local title = Instance.new("TextLabel")
@@ -152,10 +200,10 @@ dd.TextWrapped=false; dd.TextTruncate=Enum.TextTruncate.AtEnd
 dd.BackgroundColor3=Theme.card; dd.Size=UDim2.new(0,260,1,0); dd.Parent=right
 corner(dd,8); stroke(dd,Theme.accA,1).Transparency=.45
 
--- Panel list (ditaruh di root section agar tidak kepotong)
+-- Panel list (ditaruh di root section agar tidak kepotong) - TETAP DI secRoot
 local panel = Instance.new("Frame")
 panel.Visible=false; panel.BackgroundColor3=Theme.card
-panel.Size=UDim2.new(0,260,0,184); panel.Parent=secRoot
+panel.Size=UDim2.new(0,260,0,184); panel.Parent=secRoot -- IMPORTANT: Keep at secRoot
 panel.ClipsDescendants=true; panel.ZIndex=5
 corner(panel,8); stroke(panel,Theme.accB,1).Transparency=.35
 
@@ -467,7 +515,7 @@ end)
 task.spawn(function()
   while secRoot.Parent do
     if state.loopOn then
-      -- 1) TP ke Summit + “dance”
+      -- 1) TP ke Summit + "dance"
       safeTP(summitPos)
       summitDance(summitPos)
 
@@ -502,17 +550,17 @@ status.BackgroundTransparency=1; status.TextColor3=Theme.text2; status.Font=Enum
 status.Text="Status: —"; status.Size=UDim2.new(1,0,0,22); status.Parent=pq
 local function setStatus(txt, good) status.Text = "Status: "..txt; status.TextColor3 = good and Theme.good or Theme.text2 end
 
--- ROW: [Dropdown manual] [Go To]  <<<<< FIX: tombol Go To tidak kepotong
+-- ROW: [Dropdown manual] [Go To]
 local prow = Instance.new("Frame"); prow.BackgroundTransparency=1; prow.Size=UDim2.new(1,0,0,36); prow.Parent=pq
 local pl = Instance.new("UIListLayout", prow)
 pl.FillDirection=Enum.FillDirection.Horizontal; pl.Padding=UDim.new(0,8); pl.VerticalAlignment=Enum.VerticalAlignment.Center
 
 local pRight = Instance.new("Frame")
 pRight.BackgroundTransparency=1
-pRight.Size = UDim2.new(1, -(120+8), 1, 0) -- sisakan ruang buat tombol
+pRight.Size = UDim2.new(1, -(120+8), 1, 0)
 pRight.Parent = prow
 
-local pLay   = Instance.new("UIListLayout", pRight)
+local pLay = Instance.new("UIListLayout", pRight)
 pLay.FillDirection=Enum.FillDirection.Horizontal; pLay.Padding=UDim.new(0,8)
 pLay.HorizontalAlignment = Enum.HorizontalAlignment.Left
 pLay.VerticalAlignment   = Enum.VerticalAlignment.Center
@@ -530,10 +578,10 @@ pGo.Font=Enum.Font.GothamSemibold; pGo.TextSize=14; pGo.TextColor3=Theme.text
 pGo.BackgroundColor3=Theme.accA; pGo.Size=UDim2.new(0,120,1,0); pGo.Parent=prow
 corner(pGo,8); stroke(pGo,Theme.accB,1).Transparency=.3
 
--- Panel list manual (clamped)
+-- Panel list manual (clamped) - TETAP DI secRoot
 local pPanel = Instance.new("Frame")
 pPanel.Visible=false; pPanel.BackgroundColor3=Theme.card
-pPanel.Size=UDim2.new(0,260,0,184); pPanel.Parent=secRoot
+pPanel.Size=UDim2.new(0,260,0,184); pPanel.Parent=secRoot -- IMPORTANT: Keep at secRoot
 pPanel.ClipsDescendants=true; pPanel.ZIndex=5
 corner(pPanel,8); stroke(pPanel,Theme.accB,1).Transparency=.35
 
@@ -597,12 +645,10 @@ end)
 pGo.MouseButton1Click:Connect(function()
   if not selectedManualIndex then pdd.Text="Pilih titik dulu…"; return end
   local pos = manualPoints[selectedManualIndex][2]
-  -- Status di Poseidon langsung memantau juga
-  -- (biarkan seperti sekarang: Status: ... akan diupdate ketika tombol Auto dijalankan)
   safeTP(pos)
 end)
 
--- Tombol Auto Quest (tetap)
+-- Tombol Auto Quest
 local function mkBtn(txt, cb)
   local b=Instance.new("TextButton")
   b.AutoButtonColor=false; b.Text=txt; b.Font=Enum.Font.GothamSemibold; b.TextSize=14; b.TextColor3=Theme.text
@@ -645,3 +691,9 @@ mkBtn("Auto Quest Poseidon", function()
   if h then safeTP(posFrom(h)); task.wait(0.2); fireAllPrompts(h); setStatus("Selesai ✓",true)
   else setStatus("Helmet tidak ditemukan.",false) end
 end)
+
+-- ===== INITIALIZATION =====
+-- Set initial minimize state
+secRoot.Size = UDim2.new(1, -4, 0, 50) -- Start minimized
+
+print("[danuu • Mount Atin] Collapsible version loaded ✓")
