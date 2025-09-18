@@ -1,4 +1,4 @@
--- local_player.lua – final compact, no-freeze, mirror mount_manual style
+-- local_player.lua (Final Anti-Freeze, Compact, Copy-Paste)
 local UI = _G.danuu_hub_ui
 if not UI or not UI.Tabs or not UI.Tabs.Menu or not UI.NewSection then return end
 
@@ -15,14 +15,19 @@ local Theme = {
   good  = Color3.fromRGB(106,212,123),
   bad   = Color3.fromRGB(255,95,95),
 }
+
 local function corner(p,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 7) c.Parent=p return c end
 local function stroke(p,c,t) local s=Instance.new("UIStroke") s.Color=c or Color3.new(1,1,1) s.Thickness=t or 1 s.Transparency=.6 s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=p return s end
 
 local secRoot = UI.NewSection(UI.Tabs.Menu, "Local Player")
-local content = Instance.new("Frame")
+local content = Instance.new("ScrollingFrame")
 content.Size = UDim2.new(1,-8,1,-48)
 content.Position = UDim2.fromOffset(4,44)
 content.BackgroundTransparency = 1
+content.CanvasSize = UDim2.new(0,0,0,0)
+content.ScrollBarThickness = 5
+content.BorderSizePixel = 0
+content.AutomaticCanvasSize = Enum.AutomaticSize.Y
 content.Parent = secRoot
 
 local layout = Instance.new("UIListLayout",content)
@@ -45,26 +50,18 @@ mainToggle.Parent = secRoot
 corner(mainToggle,7)
 stroke(mainToggle,Theme.accA,1).Transparency=.3
 
--- ANTI FREEZE & AUTOSIZE PATCH
-local function resizeSection()
-    if not content.Visible then
-        secRoot.Size = UDim2.new(1, -4, 0, 44)
-    else
-        task.defer(function()
-            secRoot.Size = UDim2.new(1, -4, 0, layout.AbsoluteContentSize.Y + 50)
-        end)
-    end
-end
-
 mainToggle.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     content.Visible = not isMinimized
     mainToggle.Text = (isMinimized and "+" or "–").." Local Player"
-    resizeSection()
+    if isMinimized then
+        secRoot.Size = UDim2.new(1, -4, 0, 44)
+    else
+        secRoot.Size = UDim2.new(1, -4, 0, 255) -- **change to accommodate your actual baris count!**
+    end
 end)
-layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeSection)
 content.Visible = false
-resizeSection()
+secRoot.Size = UDim2.new(1,-4,0,44) -- collapsed
 
 local function newRow(height)
   local row=Instance.new("Frame")
@@ -273,3 +270,4 @@ espBtn.MouseButton1Click:Connect(function()
   espOn=not espOn;espBtn.Text,espBtn.BackgroundColor3 = espOn and "ON" or "OFF", espOn and Theme.accA or Theme.card
   if espOn then setupESP() else teardownESP() end
 end)
+
