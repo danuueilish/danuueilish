@@ -1,4 +1,4 @@
--- local_player.lua (Final Anti-Freeze, Compact, Copy-Paste)
+-- local_player.lua (Rapi, NO COLLAPSE, NO FREEZE)
 local UI = _G.danuu_hub_ui
 if not UI or not UI.Tabs or not UI.Tabs.Menu or not UI.NewSection then return end
 
@@ -15,131 +15,94 @@ local Theme = {
   good  = Color3.fromRGB(106,212,123),
   bad   = Color3.fromRGB(255,95,95),
 }
-
 local function corner(p,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 7) c.Parent=p return c end
 local function stroke(p,c,t) local s=Instance.new("UIStroke") s.Color=c or Color3.new(1,1,1) s.Thickness=t or 1 s.Transparency=.6 s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=p return s end
 
 local secRoot = UI.NewSection(UI.Tabs.Menu, "Local Player")
-local content = Instance.new("ScrollingFrame")
-content.Size = UDim2.new(1,-8,1,-48)
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1,-8,1,-52)
 content.Position = UDim2.fromOffset(4,44)
 content.BackgroundTransparency = 1
-content.CanvasSize = UDim2.new(0,0,0,0)
-content.ScrollBarThickness = 5
-content.BorderSizePixel = 0
-content.AutomaticCanvasSize = Enum.AutomaticSize.Y
 content.Parent = secRoot
 
 local layout = Instance.new("UIListLayout",content)
-layout.Padding = UDim.new(0,6)
+layout.Padding = UDim.new(0,8)
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 
-local isMinimized = true
-local mainToggle = Instance.new("TextButton")
-mainToggle.Name = "MainToggle"
-mainToggle.Text = "+ Local Player"
-mainToggle.AutoButtonColor = false
-mainToggle.Size = UDim2.new(1, -8, 0, 36)
-mainToggle.Position = UDim2.fromOffset(4,4)
-mainToggle.BackgroundColor3 = Theme.card
-mainToggle.TextColor3 = Theme.accA
-mainToggle.Font = Enum.Font.GothamBold
-mainToggle.TextSize = 15
-mainToggle.ZIndex = 2
-mainToggle.Parent = secRoot
-corner(mainToggle,7)
-stroke(mainToggle,Theme.accA,1).Transparency=.3
-
-mainToggle.MouseButton1Click:Connect(function()
-    isMinimized = not isMinimized
-    content.Visible = not isMinimized
-    mainToggle.Text = (isMinimized and "+" or "–").." Local Player"
-    if isMinimized then
-        secRoot.Size = UDim2.new(1, -4, 0, 44)
-    else
-        secRoot.Size = UDim2.new(1, -4, 0, 255) -- **change to accommodate your actual baris count!**
-    end
-end)
-content.Visible = false
-secRoot.Size = UDim2.new(1,-4,0,44) -- collapsed
-
 local function newRow(height)
-  local row=Instance.new("Frame")
-  row.BackgroundColor3=Theme.card
-  row.Size=UDim2.new(1,0,0,height or 34)
-  row.Parent=content
-  row.ClipsDescendants = true
-  corner(row,7); stroke(row,Theme.accA,1).Transparency=.45
-
-  local lay=Instance.new("UIListLayout",row)
-  lay.FillDirection=Enum.FillDirection.Horizontal
-  lay.VerticalAlignment=Enum.VerticalAlignment.Center
-  lay.Padding=UDim.new(0,7)
-
-  local left=Instance.new("TextLabel")
-  left.BackgroundTransparency=1
-  left.Size=UDim2.new(0,106,1,0)
-  left.Font=Enum.Font.GothamSemibold
-  left.TextSize=13
-  left.TextColor3=Theme.text
-  left.TextXAlignment=Enum.TextXAlignment.Left
-  left.Parent=row
-  local right=Instance.new("Frame")
-  right.BackgroundTransparency=1
-  right.Size=UDim2.new(1,-106,1,0)
-  right.Parent=row
-  return row, left, right
+    local row=Instance.new("Frame")
+    row.BackgroundColor3=Theme.card
+    row.Size=UDim2.new(1,0,0,height or 36)
+    row.Parent=content
+    row.ClipsDescendants = true
+    corner(row,7); stroke(row,Theme.accA,1).Transparency=.42
+    local lay=Instance.new("UIListLayout",row)
+    lay.FillDirection=Enum.FillDirection.Horizontal
+    lay.VerticalAlignment=Enum.VerticalAlignment.Center
+    lay.Padding=UDim.new(0,8)
+    local left=Instance.new("TextLabel")
+    left.BackgroundTransparency=1
+    left.Size=UDim2.new(0,110,1,0)
+    left.Font=Enum.Font.GothamSemibold
+    left.TextSize=13
+    left.TextColor3=Theme.text
+    left.TextXAlignment=Enum.TextXAlignment.Left
+    left.Parent=row
+    local right=Instance.new("Frame")
+    right.BackgroundTransparency=1
+    right.Size=UDim2.new(1,-110,1,0)
+    right.Parent=row
+    return row, left, right
 end
 
 -- WalkSpeed
-local _, wsLabel, wsRight = newRow(32)
-wsLabel.Text="Walk Speed"
+local _, wsLabel, wsRight = newRow(36)
+wsLabel.Text = "Walk Speed"
 local wsSlider = Instance.new("Frame")
 wsSlider.BackgroundColor3 = Theme.bg
-wsSlider.Size = UDim2.new(1,-48,0,7)
+wsSlider.Size = UDim2.new(1,-52,0,8)
 wsSlider.Parent = wsRight
-corner(wsSlider,3); stroke(wsSlider,Theme.accA,1).Transparency=.21
+corner(wsSlider,4); stroke(wsSlider,Theme.accA,1).Transparency=.22
 local wsFill = Instance.new("Frame", wsSlider)
 wsFill.BackgroundColor3 = Theme.accA
 wsFill.Size = UDim2.new(0,0,1,0)
-corner(wsFill, 3)
+corner(wsFill, 4)
 local wsKnob = Instance.new("Frame", wsSlider)
 wsKnob.BackgroundColor3 = Theme.accB
-wsKnob.Size = UDim2.fromOffset(10,10)
-wsKnob.Position = UDim2.new(0,-5,0.5,-5)
-corner(wsKnob,5)
+wsKnob.Size = UDim2.fromOffset(12,12)
+wsKnob.Position = UDim2.new(0,-6,0.5,-6)
+corner(wsKnob,6)
 local wsBox = Instance.new("TextBox")
-wsBox.Size = UDim2.new(0,39,0,22)
+wsBox.Size = UDim2.new(0,42,0,25)
 wsBox.BackgroundColor3 = Theme.card
 wsBox.TextColor3 = Theme.text
 wsBox.Font = Enum.Font.Gotham
-wsBox.TextSize = 12
+wsBox.TextSize = 13
 wsBox.ClearTextOnFocus = false
 wsBox.Text = "16"
 wsBox.TextXAlignment = Enum.TextXAlignment.Center
 wsBox.Parent = wsRight
-corner(wsBox,4); stroke(wsBox,Theme.accA,1).Transparency=.22
-
+corner(wsBox,4); stroke(wsBox,Theme.accA,1).Transparency=.18
 local WS_MIN, WS_MAX, wsTarget = 0,100,16
 local function Hum() return LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") end
-local function applyWS(v)local t=math.clamp(tonumber(v) or wsTarget,WS_MIN,WS_MAX)wsTarget=t;local r=(t-WS_MIN)/math.max(1,(WS_MAX-WS_MIN))wsFill.Size=UDim2.new(r,0,1,0)wsKnob.Position=UDim2.new(r,-5,0.5,-5)wsBox.Text=tostring(t)local h=Hum()if h then h.WalkSpeed=t end end
+local function applyWS(v)local t=math.clamp(tonumber(v) or wsTarget,WS_MIN,WS_MAX)wsTarget=t;local r=(t-WS_MIN)/math.max(1,(WS_MAX-WS_MIN))wsFill.Size=UDim2.new(r,0,1,0)wsKnob.Position=UDim2.new(r,-6,0.5,-6)wsBox.Text=tostring(t)local h=Hum()if h then h.WalkSpeed=t end end
 applyWS(wsTarget)
 LP.CharacterAdded:Connect(function() task.wait(.21); applyWS(wsTarget) end)
 do local dragging=false;local function setFromX(x)local r=math.clamp((x-wsSlider.AbsolutePosition.X)/math.max(1,wsSlider.AbsoluteSize.X),0,1)applyWS(WS_MIN+r*(WS_MAX-WS_MIN))end;wsSlider.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true;setFromX(i.Position.X)i.Changed:Connect(function()if i.UserInputState==Enum.UserInputState.End then dragging=false end end)end end)UIS.InputChanged:Connect(function(i)if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch)then setFromX(i.Position.X)end end)end
 wsBox.FocusLost:Connect(function()applyWS(wsBox.Text)end)
 
 -- Infinite Jump
-local _,ijLabel,ijRight = newRow(32)
+local _,ijLabel,ijRight = newRow(36)
 ijLabel.Text = "Infinite Jump"
 local ijBtn=Instance.new("TextButton")
-ijBtn.Size=UDim2.new(0,40,1,0)
+ijBtn.Size=UDim2.new(0,44,1,0)
 ijBtn.Font=Enum.Font.GothamSemibold
-ijBtn.TextSize=11
+ijBtn.TextSize=13
 ijBtn.TextColor3=Theme.text
 ijBtn.BackgroundColor3=Theme.card
 ijBtn.Text="OFF"
 ijBtn.Parent=ijRight
-corner(ijBtn,4); stroke(ijBtn,Theme.accA,1).Transparency=.19
+corner(ijBtn,5); stroke(ijBtn,Theme.accA,1).Transparency=.17
 local ijOn, ijConn, ijDebounce = false
 local function setInf(on)
   ijOn=on and true or false
@@ -155,17 +118,17 @@ ijBtn.MouseButton1Click:Connect(function() setInf(not ijOn) end)
 LP.CharacterAdded:Connect(function() if ijOn then setInf(true) end end)
 
 -- Fly
-local _,flyLabel,flyRight=newRow(32)
+local _,flyLabel,flyRight=newRow(36)
 flyLabel.Text="Fly Mode"
 local flyBtn=Instance.new("TextButton")
-flyBtn.Size=UDim2.new(0,40,1,0)
+flyBtn.Size=UDim2.new(0,44,1,0)
 flyBtn.Font=Enum.Font.GothamSemibold
-flyBtn.TextSize=11
+flyBtn.TextSize=13
 flyBtn.TextColor3=Theme.text
 flyBtn.BackgroundColor3=Theme.card
 flyBtn.Text="OFF"
 flyBtn.Parent=flyRight
-corner(flyBtn,4); stroke(flyBtn,Theme.accA,1).Transparency=.19
+corner(flyBtn,5); stroke(flyBtn,Theme.accA,1).Transparency=.17
 local flyOn,flyConn,gyro,vel=false
 local keys={W=false,A=false,S=false,D=false,Up=false,Down=false}
 local FLY_SPEED=2
@@ -219,17 +182,17 @@ flyBtn.MouseButton1Click:Connect(function() if flyOn then stopFly() else startFl
 LP.CharacterAdded:Connect(function() if flyOn then task.wait(.2); startFly() end end)
 
 -- ESP
-local _,espLabel,espRight = newRow(32)
+local _,espLabel,espRight = newRow(36)
 espLabel.Text="Player ESP"
 local espBtn=Instance.new("TextButton")
-espBtn.Size=UDim2.new(0,40,1,0)
+espBtn.Size=UDim2.new(0,44,1,0)
 espBtn.Font=Enum.Font.GothamSemibold
-espBtn.TextSize=11
+espBtn.TextSize=13
 espBtn.TextColor3=Theme.text
 espBtn.BackgroundColor3=Theme.card
 espBtn.Text="OFF"
 espBtn.Parent=espRight
-corner(espBtn,4); stroke(espBtn,Theme.accA,1).Transparency=.19
+corner(espBtn,5); stroke(espBtn,Theme.accA,1).Transparency=.17
 local espOn, espConns = false, {}
 local function clearESP(char)if not char then return end;for _,d in ipairs(char:GetChildren()) do
   if (d:IsA("BillboardGui") and d.Name=="danuu_esp_gui") or (d:IsA("Highlight") and d.Name=="danuu_esp_highlight") then d:Destroy() end end end
@@ -270,4 +233,3 @@ espBtn.MouseButton1Click:Connect(function()
   espOn=not espOn;espBtn.Text,espBtn.BackgroundColor3 = espOn and "ON" or "OFF", espOn and Theme.accA or Theme.card
   if espOn then setupESP() else teardownESP() end
 end)
-
