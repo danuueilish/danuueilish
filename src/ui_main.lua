@@ -1,10 +1,12 @@
--- ui_main.lua — FIX: NO autosize event loop, no error global!
+-- ui_main.lua
+-- danuu eilish • Hub — kerangka UI + tabs
 local Players = game:GetService("Players")
 local UIS     = game:GetService("UserInputService")
 local Tween   = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 local LP = Players.LocalPlayer
 
+-- ===== util UI kecil
 local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 10); c.Parent=p; return c end
 local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.6; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 local function pad(p,px) local pd=Instance.new("UIPadding"); pd.PaddingTop=UDim.new(0,px); pd.PaddingBottom=UDim.new(0,px); pd.PaddingLeft=UDim.new(0,px); pd.PaddingRight=UDim.new(0,px); pd.Parent=p; return pd end
@@ -21,6 +23,7 @@ local Theme = {
   good  = Color3.fromRGB(106,212,123),
 }
 
+-- ===== root gui
 local sg=Instance.new("ScreenGui")
 sg.Name="danuu_hub"
 sg.ResetOnSpawn=false
@@ -28,6 +31,7 @@ sg.ZIndexBehavior=Enum.ZIndexBehavior.Global
 pcall(function() sg.Parent = CoreGui end)
 if not sg.Parent then sg.Parent = LP:WaitForChild("PlayerGui") end
 
+-- autoscale
 local scaler=Instance.new("UIScale", sg)
 local function rescale()
   local cam=workspace.CurrentCamera
@@ -39,6 +43,7 @@ if workspace.CurrentCamera then
   workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
 end
 
+-- ===== window
 local root=Instance.new("Frame")
 root.Name="Window"
 root.Active=true
@@ -64,6 +69,7 @@ end
 local btnMin   = topBtn("–", Theme.bg)
 local btnClose = topBtn("✕", Theme.bad)
 
+-- drag
 do
   local dragging=false; local start; local startPos
   title.InputBegan:Connect(function(i)
@@ -80,6 +86,7 @@ do
   end)
 end
 
+-- bubble minimize
 local bubble=Instance.new("Frame"); bubble.Visible=false; bubble.Size=UDim2.fromOffset(56,56); bubble.BackgroundColor3=Theme.accA; bubble.Parent=sg
 corner(bubble,28); stroke(bubble,Theme.accB,2).Transparency=.2
 local bTxt=Instance.new("TextLabel"); bTxt.BackgroundTransparency=1; bTxt.Size=UDim2.fromScale(1,1); bTxt.Font=Enum.Font.GothamBlack; bTxt.Text="DE"; bTxt.TextSize=20; bTxt.TextColor3=Theme.text; bTxt.Parent=bubble
@@ -91,10 +98,12 @@ end)
 bubble.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then root.Visible=true; bubble.Visible=false; Tween:Create(root,TweenInfo.new(.18),{BackgroundTransparency=0}):Play(); Tween:Create(root,TweenInfo.new(.20),{Size=UDim2.fromOffset(640,420)}):Play() end end)
 btnClose.MouseButton1Click:Connect(function() sg:Destroy() end)
 
+-- ===== kiri: tabs
 local tabList=Instance.new("Frame"); tabList.BackgroundColor3=Theme.bg; tabList.Size=UDim2.new(0,140,1,-58); tabList.Position=UDim2.fromOffset(8,50); tabList.Parent=root
 corner(tabList,12); stroke(tabList,Theme.accA,1).Transparency=.8; pad(tabList,8)
 local tabButtons=Instance.new("UIListLayout",tabList); tabButtons.Padding=UDim.new(0,8)
 
+-- kanan: content
 local content=Instance.new("Frame"); content.BackgroundColor3=Theme.bg; content.Size=UDim2.new(1,-(140+24),1,-58); content.Position=UDim2.fromOffset(140+16,50); content.Parent=root
 corner(content,12); stroke(content,Theme.accA,1).Transparency=.8; pad(content,10)
 
@@ -109,16 +118,20 @@ end
 local Tabs = {}
 local function createTab(name)
   local btn = mkTabButton(name)
-  local page=Instance.new("ScrollingFrame") -- GANTI Frame jadi ScrollingFrame
+  local page=Instance.new("ScrollingFrame")
   page.Visible=false; page.BackgroundTransparency=1; page.Size=UDim2.fromScale(1,1)
-  page.AutomaticCanvasSize=Enum.AutomaticSize.Y
   page.ScrollBarThickness=6; page.CanvasSize=UDim2.new(0,0,0,0); page.Parent=content
 
+  -- padding konten
   local pagePad = Instance.new("UIPadding", page)
   pagePad.PaddingLeft, pagePad.PaddingRight = UDim.new(0,8), UDim.new(0,8)
   pagePad.PaddingTop, pagePad.PaddingBottom = UDim.new(0,8), UDim.new(0,8)
+
   local lay=Instance.new("UIListLayout",page); lay.Padding=UDim.new(0,10)
-  -- HAPUS semua .GetPropertyChangedSignal("AbsoluteContentSize") event di sini
+  lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    page.CanvasSize=UDim2.new(0,0,0,lay.AbsoluteContentSize.Y+10)
+  end)
+
   local t={Name=name, Button=btn, Page=page}; table.insert(Tabs,t)
   btn.MouseButton1Click:Connect(function()
     for _,tb in ipairs(Tabs) do tb.Page.Visible=false end
@@ -130,7 +143,7 @@ end
 local function section(parent, titleText)
   local container=Instance.new("Frame")
   container.BackgroundColor3=Theme.card
-  container.Size=UDim2.new(1,-4,0,60)
+  container.Size=UDim2.new(1,-4,0,60)  -- shrink 4px
   container.Position=UDim2.fromOffset(2,0)
   container.Parent=parent
   container.ClipsDescendants=false
@@ -155,8 +168,12 @@ local function section(parent, titleText)
   inner.Parent=container
 
   local v=Instance.new("UIListLayout",inner); v.Padding=UDim.new(0,8)
-  -- REMOVE all event-based resize/AbsoluteContentSize here!
-  -- Optionally: set container.Size to fixed, or allow user resize according to your need.
+  local function resize()
+    container.Size=UDim2.new(1,-4,0, math.max(60,40+v.AbsoluteContentSize.Y))
+    inner.Size=UDim2.new(1,-16,0,v.AbsoluteContentSize.Y)
+  end
+  v:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resize)
+  task.defer(resize)
 
   return inner
 end
@@ -170,6 +187,7 @@ local TabSettings = createTab("Settings")
 
 TabMenu.Page.Visible=true
 
+-- ===== isi default
 do
   local s = section(TabMenu.Page, "Welcome")
   local t = Instance.new("TextLabel")
@@ -183,16 +201,18 @@ do
   t.Parent=s
 end
 
+-- ===== Section untuk semua Mount + SIMPAN REFERENSI
 local MountSections = {}
 do
   local names={"Mount Atin","Mount Daun","Mount Sumbing","Mount Sibuatan","Mount Antarctica","Manual"}
   for _,n in ipairs(names) do
-    MountSections[n] = section(TabMount.Page, n)
+    MountSections[n] = section(TabMount.Page, n)  -- simpan inner frame
   end
 end
 
 do section(TabUtility.Page,"Rejoin / Server Hop") end
 
+-- ===== API untuk modul lain
 local API = {
   RootGui=sg,
   Window=root,
@@ -204,7 +224,7 @@ local API = {
     Settings=TabSettings.Page
   },
   NewSection=section,
-  MountSections = MountSections,
+  MountSections = MountSections, -- <— penting: referensi section per-mount
 }
 _G.danuu_hub_ui=API
 return API
