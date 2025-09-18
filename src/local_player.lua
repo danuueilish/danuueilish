@@ -1,4 +1,4 @@
--- src/local_player.lua (FULL COMPACT FIX - MIRIP MOUNT_MANUAL, SIAP COPY)
+-- local_player.lua – final compact, no-freeze, mirror mount_manual style
 local UI = _G.danuu_hub_ui
 if not UI or not UI.Tabs or not UI.Tabs.Menu or not UI.NewSection then return end
 
@@ -45,15 +45,22 @@ mainToggle.Parent = secRoot
 corner(mainToggle,7)
 stroke(mainToggle,Theme.accA,1).Transparency=.3
 
-local function resizeSection() -- dinamis
-  secRoot.Size = isMinimized and UDim2.new(1,-4,0,44) or UDim2.new(1,-4,0,layout.AbsoluteContentSize.Y+50)
+-- ANTI FREEZE & AUTOSIZE PATCH
+local function resizeSection()
+    if not content.Visible then
+        secRoot.Size = UDim2.new(1, -4, 0, 44)
+    else
+        task.defer(function()
+            secRoot.Size = UDim2.new(1, -4, 0, layout.AbsoluteContentSize.Y + 50)
+        end)
+    end
 end
 
 mainToggle.MouseButton1Click:Connect(function()
-  isMinimized = not isMinimized
-  content.Visible = not isMinimized
-  mainToggle.Text = (isMinimized and "+" or "–").." Local Player"
-  resizeSection()
+    isMinimized = not isMinimized
+    content.Visible = not isMinimized
+    mainToggle.Text = (isMinimized and "+" or "–").." Local Player"
+    resizeSection()
 end)
 layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resizeSection)
 content.Visible = false
