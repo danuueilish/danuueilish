@@ -1,12 +1,11 @@
--- local_player.lua (FINAL CLEAN VERSION)
+-- local_player.lua super simple, NO COLLAPSE, NO EVENT, NO LOOP, NO SIZE LOGIC, CLEAN
 local UI = _G.danuu_hub_ui
 if not UI or not UI.Tabs or not UI.Tabs.Menu or not UI.NewSection then return end
 
-print("=== LOCAL PLAYER LOADING ===") -- Debug line
-
-local Players, UIS, RS = game:GetService("Players"), game:GetService("UserInputService"), game:GetService("RunService")
-local LP = Players.LocalPlayer
-
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RS  = game:GetService("RunService")
+local LP  = Players.LocalPlayer
 local Theme = {
   bg    = Color3.fromRGB(24,20,40),
   card  = Color3.fromRGB(44,36,72),
@@ -15,17 +14,15 @@ local Theme = {
   accA  = Color3.fromRGB(125,84,255),
   accB  = Color3.fromRGB(215,55,255)
 }
-
 local function corner(p,r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 8) c.Parent=p return c end
 local function stroke(p,c,t) local s=Instance.new("UIStroke") s.Color=c or Color3.new(1,1,1) s.Thickness=t or 1 s.Transparency=.5 s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=p return s end
 
 local secRoot = UI.NewSection(UI.Tabs.Menu, "Local Player")
 
--- Container dengan scroll
 local scroll = Instance.new("ScrollingFrame")
 scroll.Size = UDim2.new(1,-8,1,-8)
 scroll.Position = UDim2.fromOffset(4,4)
-scroll.ScrollBarThickness = 4
+scroll.ScrollBarThickness = 5
 scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 scroll.CanvasSize = UDim2.new(0,0,0,0)
 scroll.BackgroundTransparency = 1
@@ -36,23 +33,19 @@ local layout = Instance.new("UIListLayout",scroll)
 layout.Padding = UDim.new(0,8)
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- Helper buat baris label-kontrol
-local function newRow(labelText, height)
+local function newRow(labelText, h)
   local row = Instance.new("Frame")
-  row.Size = UDim2.new(1,0,0,height or 32)
+  row.Size = UDim2.new(1,0,0,h or 34)
   row.BackgroundColor3 = Theme.card
   row.Parent = scroll
-  corner(row,8); stroke(row,Theme.accA,1).Transparency=.3
-  
-  -- Layout horizontal
+  corner(row,8); stroke(row,Theme.accA,1).Transparency=.25
   local lay = Instance.new("UIListLayout",row)
   lay.FillDirection = Enum.FillDirection.Horizontal
   lay.VerticalAlignment = Enum.VerticalAlignment.Center
   lay.Padding = UDim.new(0,8)
-  
-  -- Label kiri (fixed width)
+
   local label = Instance.new("TextLabel")
-  label.Size = UDim2.new(0,90,1,0)
+  label.Size = UDim2.new(0,92,1,0)
   label.BackgroundTransparency = 1
   label.Font = Enum.Font.GothamSemibold
   label.TextXAlignment = Enum.TextXAlignment.Left
@@ -60,63 +53,61 @@ local function newRow(labelText, height)
   label.TextColor3 = Theme.text
   label.Text = labelText
   label.Parent = row
-  
-  -- Container kontrol kanan
-  local controls = Instance.new("Frame")
-  controls.BackgroundTransparency = 1
-  controls.Size = UDim2.new(1,-90,1,0)
-  controls.Parent = row
-  
-  return row, controls
+
+  local right = Instance.new("Frame")
+  right.BackgroundTransparency = 1
+  right.Size = UDim2.new(1,-92,1,0)
+  right.Parent = row
+  return right
 end
 
 -- WALKSPEED
-local _, wsControls = newRow("Walk Speed", 32)
+local wsRight = newRow("Walk Speed", 33)
 local wsSlider = Instance.new("Frame")
 wsSlider.BackgroundColor3 = Theme.bg
-wsSlider.Size = UDim2.new(1,-45,0,6)
-wsSlider.Parent = wsControls
-corner(wsSlider,3); stroke(wsSlider,Theme.accA,1).Transparency=.2
+wsSlider.Size = UDim2.new(1,-48,0,7)
+wsSlider.Parent = wsRight
+corner(wsSlider,3); stroke(wsSlider,Theme.accA,1).Transparency=.11
 local wsFill = Instance.new("Frame", wsSlider)
 wsFill.BackgroundColor3 = Theme.accA
 wsFill.Size = UDim2.new(0,0,1,0)
 corner(wsFill, 3)
 local wsKnob = Instance.new("Frame", wsSlider)
 wsKnob.BackgroundColor3 = Theme.accB
-wsKnob.Size = UDim2.fromOffset(8,8)
-wsKnob.Position = UDim2.new(0,-4,0.5,-4)
-corner(wsKnob,4)
+wsKnob.Size = UDim2.fromOffset(10,10)
+wsKnob.Position = UDim2.new(0,-5,0.5,-5)
+corner(wsKnob,5)
 local wsBox = Instance.new("TextBox")
-wsBox.Size = UDim2.new(0,35,0,18)
+wsBox.Size = UDim2.new(0,36,0,20)
 wsBox.BackgroundColor3 = Theme.card
 wsBox.TextColor3 = Theme.text
 wsBox.Font = Enum.Font.Gotham
-wsBox.TextSize = 11
+wsBox.TextSize = 12
 wsBox.ClearTextOnFocus = false
 wsBox.Text = "16"
 wsBox.TextXAlignment = Enum.TextXAlignment.Center
-wsBox.Parent = wsControls
-corner(wsBox,4); stroke(wsBox,Theme.accA,1).Transparency=.2
+wsBox.Parent = wsRight
+corner(wsBox,4); stroke(wsBox,Theme.accA,1).Transparency=.08
 
 local WS_MIN, WS_MAX, wsTarget = 0,100,16
 local function Hum()return LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") end
-local function applyWS(v)local t=math.clamp(tonumber(v) or wsTarget,WS_MIN,WS_MAX)wsTarget=t;local r=(t-WS_MIN)/math.max(1,(WS_MAX-WS_MIN))wsFill.Size=UDim2.new(r,0,1,0)wsKnob.Position=UDim2.new(r,-4,0.5,-4)wsBox.Text=tostring(t)local h=Hum()if h then h.WalkSpeed=t end end
+local function applyWS(v)local t=math.clamp(tonumber(v) or wsTarget,WS_MIN,WS_MAX)wsTarget=t;local r=(t-WS_MIN)/math.max(1,(WS_MAX-WS_MIN))wsFill.Size=UDim2.new(r,0,1,0)wsKnob.Position=UDim2.new(r,-5,0.5,-5)wsBox.Text=tostring(t)local h=Hum()if h then h.WalkSpeed=t end end
 applyWS(wsTarget)
-LP.CharacterAdded:Connect(function() task.wait(.2); applyWS(wsTarget) end)
+LP.CharacterAdded:Connect(function() task.wait(.21); applyWS(wsTarget) end)
 do local dragging=false;local function setFromX(x)local r=math.clamp((x-wsSlider.AbsolutePosition.X)/math.max(1,wsSlider.AbsoluteSize.X),0,1)applyWS(WS_MIN+r*(WS_MAX-WS_MIN))end;wsSlider.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true;setFromX(i.Position.X)i.Changed:Connect(function()if i.UserInputState==Enum.UserInputState.End then dragging=false end end)end end)UIS.InputChanged:Connect(function(i)if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch)then setFromX(i.Position.X)end end)end
 wsBox.FocusLost:Connect(function()applyWS(wsBox.Text)end)
 
 -- INFINITE JUMP
-local _, ijControls = newRow("Infinite Jump", 32)
+local ijRight = newRow("Infinite Jump", 33)
 local ijBtn=Instance.new("TextButton")
-ijBtn.Size=UDim2.new(0,40,1,0)
+ijBtn.Size=UDim2.new(0,42,1,0)
 ijBtn.Font=Enum.Font.GothamSemibold
-ijBtn.TextSize=11
+ijBtn.TextSize=12
 ijBtn.TextColor3=Theme.text
 ijBtn.BackgroundColor3=Theme.card
 ijBtn.Text="OFF"
-ijBtn.Parent=ijControls
-corner(ijBtn,4); stroke(ijBtn,Theme.accA,1).Transparency=.2
+ijBtn.Parent=ijRight
+corner(ijBtn,4); stroke(ijBtn,Theme.accA,1).Transparency=.12
 local ijOn, ijConn, ijDebounce = false
 local function setInf(on)
   ijOn=on and true or false
@@ -132,16 +123,16 @@ ijBtn.MouseButton1Click:Connect(function() setInf(not ijOn) end)
 LP.CharacterAdded:Connect(function() if ijOn then setInf(true) end end)
 
 -- FLY
-local _, flyControls = newRow("Fly Mode", 32)
+local flyRight=newRow("Fly Mode",33)
 local flyBtn=Instance.new("TextButton")
-flyBtn.Size=UDim2.new(0,40,1,0)
+flyBtn.Size=UDim2.new(0,42,1,0)
 flyBtn.Font=Enum.Font.GothamSemibold
-flyBtn.TextSize=11
+flyBtn.TextSize=12
 flyBtn.TextColor3=Theme.text
 flyBtn.BackgroundColor3=Theme.card
 flyBtn.Text="OFF"
-flyBtn.Parent=flyControls
-corner(flyBtn,4); stroke(flyBtn,Theme.accA,1).Transparency=.2
+flyBtn.Parent=flyRight
+corner(flyBtn,4); stroke(flyBtn,Theme.accA,1).Transparency=.12
 local flyOn,flyConn,gyro,vel=false
 local keys={W=false,A=false,S=false,D=false,Up=false,Down=false}
 local FLY_SPEED=2
@@ -195,16 +186,16 @@ flyBtn.MouseButton1Click:Connect(function() if flyOn then stopFly() else startFl
 LP.CharacterAdded:Connect(function() if flyOn then task.wait(.2); startFly() end end)
 
 -- ESP
-local _, espControls = newRow("Player ESP", 32)
+local espRight = newRow("Player ESP", 33)
 local espBtn=Instance.new("TextButton")
-espBtn.Size=UDim2.new(0,40,1,0)
+espBtn.Size=UDim2.new(0,42,1,0)
 espBtn.Font=Enum.Font.GothamSemibold
-espBtn.TextSize=11
+espBtn.TextSize=12
 espBtn.TextColor3=Theme.text
 espBtn.BackgroundColor3=Theme.card
 espBtn.Text="OFF"
-espBtn.Parent=espControls
-corner(espBtn,4); stroke(espBtn,Theme.accA,1).Transparency=.2
+espBtn.Parent=espRight
+corner(espBtn,4); stroke(espBtn,Theme.accA,1).Transparency=.12
 local espOn, espConns = false, {}
 local function clearESP(char)if not char then return end;for _,d in ipairs(char:GetChildren()) do
   if (d:IsA("BillboardGui") and d.Name=="danuu_esp_gui") or (d:IsA("Highlight") and d.Name=="danuu_esp_highlight") then d:Destroy() end end end
@@ -245,5 +236,3 @@ espBtn.MouseButton1Click:Connect(function()
   espOn=not espOn;espBtn.Text,espBtn.BackgroundColor3 = espOn and "ON" or "OFF", espOn and Theme.accA or Theme.card
   if espOn then setupESP() else teardownESP() end
 end)
-
-print("=== LOCAL PLAYER LOADED ✓ ===") -- Konfirmasi berhasil
