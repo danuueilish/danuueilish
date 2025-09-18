@@ -1,8 +1,8 @@
--- src/local_player.lua (Full Professional Collapsible Local Player)
+-- src/local_player.lua (Final 1:1 mount_manual.lua-style)
 local UI = _G.danuu_hub_ui
 if not UI or not UI.Tabs or not UI.Tabs.Menu or not UI.NewSection then return end
 
-local Players, UIS, RS = game:GetService("Players"), game:GetService("UserInputService"), game:GetService("RunService")
+local Players,UIS,RS = game:GetService("Players"),game:GetService("UserInputService"),game:GetService("RunService")
 local LP = Players.LocalPlayer
 
 local Theme = {
@@ -15,328 +15,253 @@ local Theme = {
   good  = Color3.fromRGB(106,212,123),
   bad   = Color3.fromRGB(255,95,95),
 }
-
-local function corner(p, r) local c=Instance.new("UICorner") c.CornerRadius=UDim.new(0,r or 8) c.Parent=p return c end
-local function stroke(p,c,t) local s=Instance.new("UIStroke") s.Color=c or Color3.new(1,1,1) s.Thickness=t or 1 s.Transparency=.6 s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=p return s end
+local function corner(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p; return c end
+local function stroke(p,c,t) local s=Instance.new("UIStroke"); s.Color=c or Color3.new(1,1,1); s.Thickness=t or 1; s.Transparency=.6; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=p; return s end
 
 local secRoot = UI.NewSection(UI.Tabs.Menu, "Local Player")
-local container = Instance.new("Frame")
-container.BackgroundTransparency = 1
-container.Size = UDim2.new(1, -8, 1, -52)
-container.Position = UDim2.fromOffset(4, 50)
-container.Parent = secRoot
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1,-8,1,-48)
+content.Position = UDim2.fromOffset(4,44)
+content.BackgroundTransparency = 1
+content.Parent = secRoot
 
-local containerLayout = Instance.new("UIListLayout", container)
-containerLayout.Padding = UDim.new(0, 12)
-containerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+local layout = Instance.new("UIListLayout",content)
+layout.Padding = UDim.new(0,8)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
 
--- Collapsible UI
+-- COLLAPSE BUTTON
 local isMinimized = true
 local mainToggle = Instance.new("TextButton")
-mainToggle.Name = "MainToggle"
-mainToggle.Text = "+ Local Player"
-mainToggle.Font = Enum.Font.GothamBold
-mainToggle.TextSize = 16
-mainToggle.TextColor3 = Theme.accA
-mainToggle.BackgroundColor3 = Theme.card
-mainToggle.Size = UDim2.new(1,-8,0,40)
-mainToggle.Position = UDim2.fromOffset(4,4)
+mainToggle.Name="MainToggle"
+mainToggle.Text="+ Local Player"
+mainToggle.AutoButtonColor=false
+mainToggle.Size=UDim2.new(1,-8,0,40)
+mainToggle.Position=UDim2.fromOffset(4,4)
+mainToggle.BackgroundColor3=Theme.card
+mainToggle.TextColor3=Theme.accA
+mainToggle.Font=Enum.Font.GothamBold
+mainToggle.TextSize=16
+mainToggle.ZIndex=2
 mainToggle.Parent = secRoot
-mainToggle.AutoButtonColor = false
-corner(mainToggle, 10); stroke(mainToggle, Theme.accA, 1).Transparency=.3
+corner(mainToggle,10)
+stroke(mainToggle,Theme.accA,1).Transparency=.3
 
 local function toggleMin()
-    isMinimized = not isMinimized
-    container.Visible = not isMinimized
-    mainToggle.Text = (isMinimized and "+" or "–") .. " Local Player"
-    secRoot.Size = isMinimized and UDim2.new(1, -4, 0, 50) or UDim2.new(1, -4, 0, 395)
+  isMinimized = not isMinimized
+  content.Visible = not isMinimized
+  mainToggle.Text = (isMinimized and "+" or "–") .. " Local Player"
+  secRoot.Size = isMinimized and UDim2.new(1, -4, 0, 50) or UDim2.new(1, -4, 0, 305)
 end
 mainToggle.MouseButton1Click:Connect(toggleMin)
-toggleMin() -- start hidden
+toggleMin()
 
+-- Compact 2-kolom Row (label kiri, control kanan)
 local function newRow(height)
-    local row=Instance.new("Frame")
-    row.BackgroundColor3=Theme.card
-    row.Size=UDim2.new(1,0,0,height or 54)
-    row.Parent=container
-    corner(row,10); stroke(row,Theme.accA,1).Transparency=.5
-    local lay=Instance.new("UIListLayout",row)
-    lay.FillDirection=Enum.FillDirection.Horizontal
-    lay.VerticalAlignment=Enum.VerticalAlignment.Center
-    lay.Padding=UDim.new(0,12)
-    local left=Instance.new("TextLabel")
-    left.BackgroundTransparency=1
-    left.Size=UDim2.new(0,126,1,0)
-    left.Font=Enum.Font.GothamSemibold
-    left.TextSize=15
-    left.TextColor3=Theme.text
-    left.TextXAlignment=Enum.TextXAlignment.Left
-    left.Parent=row
-    local right=Instance.new("Frame")
-    right.BackgroundTransparency=1
-    right.Size=UDim2.new(1,-126,1,0)
-    right.Parent=row
-    return row, left, right
+  local row=Instance.new("Frame")
+  row.BackgroundColor3=Theme.card
+  row.Size=UDim2.new(1,0,0,height or 36)
+  row.Parent=content
+  row.ClipsDescendants = true
+  corner(row,8); stroke(row,Theme.accA,1).Transparency=.5
+
+  local lay=Instance.new("UIListLayout",row)
+  lay.FillDirection=Enum.FillDirection.Horizontal
+  lay.VerticalAlignment=Enum.VerticalAlignment.Center
+  lay.Padding=UDim.new(0,8)
+
+  local left=Instance.new("TextLabel")
+  left.BackgroundTransparency=1
+  left.Size=UDim2.new(0,120,1,0)
+  left.Font=Enum.Font.GothamSemibold
+  left.TextSize=14
+  left.TextColor3=Theme.text
+  left.TextXAlignment=Enum.TextXAlignment.Left
+  left.Parent=row
+
+  local right=Instance.new("Frame")
+  right.BackgroundTransparency=1
+  right.Size=UDim2.new(1,-120,1,0)
+  right.Parent=row
+  return row, left, right
 end
 
 -- WalkSpeed
-local _, wsLabel, wsRight = newRow(56)
-wsLabel.Text = "Walk Speed"
+local _, wsLabel, wsRight = newRow(36)
+wsLabel.Text="Walk Speed"
 local wsSlider = Instance.new("Frame")
 wsSlider.BackgroundColor3 = Theme.bg
-wsSlider.Size = UDim2.new(1,-90,0,11)
+wsSlider.Size = UDim2.new(1,-65,0,8)
 wsSlider.Parent = wsRight
-corner(wsSlider, 5); stroke(wsSlider, Theme.accA, 1).Transparency=.3
-local wsFill = Instance.new("Frame", wsSlider)
+corner(wsSlider,5); stroke(wsSlider,Theme.accA,1).Transparency=.3
+local wsFill = Instance.new("Frame")
 wsFill.BackgroundColor3 = Theme.accA
 wsFill.Size = UDim2.new(0,0,1,0)
+wsFill.Parent = wsSlider
 corner(wsFill, 5)
-local wsKnob = Instance.new("Frame", wsSlider)
+local wsKnob = Instance.new("Frame")
 wsKnob.BackgroundColor3 = Theme.accB
-wsKnob.Size = UDim2.fromOffset(16,16)
-wsKnob.Position = UDim2.new(0,-8,0.5,-8)
-corner(wsKnob,8)
+wsKnob.Size = UDim2.fromOffset(14,14)
+wsKnob.Position = UDim2.new(0,-7,0.5,-7)
+wsKnob.Parent = wsSlider
+corner(wsKnob,7)
 local wsBox = Instance.new("TextBox")
-wsBox.Size = UDim2.new(0,70,0,36)
+wsBox.Size = UDim2.new(0,50,0,28)
 wsBox.BackgroundColor3 = Theme.card
 wsBox.TextColor3 = Theme.text
 wsBox.Font = Enum.Font.Gotham
-wsBox.TextSize = 14
+wsBox.TextSize = 13
 wsBox.ClearTextOnFocus = false
 wsBox.Text = "16"
 wsBox.TextXAlignment = Enum.TextXAlignment.Center
 wsBox.Parent = wsRight
-corner(wsBox,7); stroke(wsBox, Theme.accA, 1).Transparency = .36
-local WS_MIN, WS_MAX, wsTarget = 0, 100, 16
+corner(wsBox,6); stroke(wsBox,Theme.accA,1).Transparency=.25
+local WS_MIN, WS_MAX, wsTarget = 0,100,16
 local function Hum() return LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") end
-local function applyWS(v)
-    wsTarget = math.clamp(math.floor(tonumber(v) or wsTarget), WS_MIN, WS_MAX)
-    local rel = (wsTarget-WS_MIN)/math.max(1,(WS_MAX-WS_MIN))
-    wsFill.Size = UDim2.new(rel,0,1,0)
-    wsKnob.Position = UDim2.new(rel,-8,0.5,-8)
-    wsBox.Text = tostring(wsTarget)
-    local h=Hum(); if h then h.WalkSpeed = wsTarget end
-end
+local function applyWS(v)local t=math.clamp(tonumber(v) or wsTarget,WS_MIN,WS_MAX)wsTarget=t;local r=(t-WS_MIN)/math.max(1,(WS_MAX-WS_MIN))wsFill.Size=UDim2.new(r,0,1,0)wsKnob.Position=UDim2.new(r,-7,0.5,-7)wsBox.Text=tostring(t)local h=Hum()if h then h.WalkSpeed=t end end
 applyWS(wsTarget)
-LP.CharacterAdded:Connect(function() task.wait(.2); applyWS(wsTarget) end)
-do
-    local dragging=false
-    local function setFromX(x)
-        local rel = math.clamp((x - wsSlider.AbsolutePosition.X)/math.max(1,wsSlider.AbsoluteSize.X),0,1)
-        applyWS(WS_MIN + rel * (WS_MAX-WS_MIN))
-    end
-    wsSlider.InputBegan:Connect(function(i)
-        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-            dragging=true; setFromX(i.Position.X)
-            i.Changed:Connect(function()
-                if i.UserInputState==Enum.UserInputState.End then dragging=false end
-            end)
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
-            setFromX(i.Position.X)
-        end
-    end)
-end
-wsBox.FocusLost:Connect(function() applyWS(wsBox.Text) end)
+LP.CharacterAdded:Connect(function() task.wait(.21); applyWS(wsTarget) end)
+do local dragging=false;local function setFromX(x)local r=math.clamp((x-wsSlider.AbsolutePosition.X)/math.max(1,wsSlider.AbsoluteSize.X),0,1)applyWS(WS_MIN+r*(WS_MAX-WS_MIN))end;wsSlider.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true;setFromX(i.Position.X)i.Changed:Connect(function()if i.UserInputState==Enum.UserInputState.End then dragging=false end end)end end)UIS.InputChanged:Connect(function(i)if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch)then setFromX(i.Position.X)end end)end
+wsBox.FocusLost:Connect(function()applyWS(wsBox.Text)end)
 
 -- Infinite Jump
-local _, ijLabel, ijRight = newRow(54)
+local _,ijLabel,ijRight = newRow(36)
 ijLabel.Text = "Infinite Jump"
 local ijBtn=Instance.new("TextButton")
-ijBtn.Size=UDim2.new(0,86,1,0)
-ijBtn.AutoButtonColor=false
+ijBtn.Size=UDim2.new(0,52,1,0)
 ijBtn.Font=Enum.Font.GothamSemibold
-ijBtn.TextSize=14
+ijBtn.TextSize=12
 ijBtn.TextColor3=Theme.text
 ijBtn.BackgroundColor3=Theme.card
 ijBtn.Text="OFF"
 ijBtn.Parent=ijRight
-corner(ijBtn,8); stroke(ijBtn,Theme.accA,1).Transparency=.3
+corner(ijBtn,7); stroke(ijBtn,Theme.accA,1).Transparency=.24
 local ijOn, ijConn, ijDebounce = false
 local function setInf(on)
-    ijOn = on and true or false
-    if ijConn then ijConn:Disconnect(); ijConn=nil end
-    if ijOn then
-        ijConn = UIS.JumpRequest:Connect(function()
-            if not ijDebounce then
-                ijDebounce=true
-                local h = Hum(); if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
-                task.wait(); ijDebounce=false
-            end
-        end)
-    end
-    ijBtn.Text, ijBtn.BackgroundColor3 = ijOn and "ON" or "OFF", ijOn and Theme.accA or Theme.card
+  ijOn=on and true or false
+  if ijConn then ijConn:Disconnect(); ijConn=nil end
+  if ijOn then
+    ijConn = UIS.JumpRequest:Connect(function()
+      if not ijDebounce then ijDebounce=true;local h=Hum();if h then h:ChangeState(Enum.HumanoidStateType.Jumping)end;task.wait();ijDebounce=false end
+    end)
+  end
+  ijBtn.Text, ijBtn.BackgroundColor3 = ijOn and "ON" or "OFF", ijOn and Theme.accA or Theme.card
 end
 ijBtn.MouseButton1Click:Connect(function() setInf(not ijOn) end)
 LP.CharacterAdded:Connect(function() if ijOn then setInf(true) end end)
 
--- Fly (admin style)
-local _, flyLabel, flyRight = newRow(54)
-flyLabel.Text = "Fly Mode"
+-- Fly
+local _,flyLabel,flyRight=newRow(36)
+flyLabel.Text="Fly Mode"
 local flyBtn=Instance.new("TextButton")
-flyBtn.Size=UDim2.new(0,86,1,0)
-flyBtn.AutoButtonColor=false
+flyBtn.Size=UDim2.new(0,52,1,0)
 flyBtn.Font=Enum.Font.GothamSemibold
-flyBtn.TextSize=14
+flyBtn.TextSize=12
 flyBtn.TextColor3=Theme.text
 flyBtn.BackgroundColor3=Theme.card
 flyBtn.Text="OFF"
 flyBtn.Parent=flyRight
-corner(flyBtn,8); stroke(flyBtn,Theme.accA,1).Transparency=.3
-local flyOn, flyConn, gyro, vel = false
+corner(flyBtn,7); stroke(flyBtn,Theme.accA,1).Transparency=.24
+local flyOn,flyConn,gyro,vel=false
 local keys={W=false,A=false,S=false,D=false,Up=false,Down=false}
-local FLY_SPEED = 2
-local function HRP() return LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") end
-local function stopFly()
-    flyOn=false
-    if flyConn then flyConn:Disconnect(); flyConn=nil end
-    if gyro then gyro:Destroy(); gyro=nil end
-    if vel then vel:Destroy(); vel=nil end
-    flyBtn.Text, flyBtn.BackgroundColor3 = "OFF", Theme.card
-    local h = Hum(); if h then h.PlatformStand = false end
-end
+local FLY_SPEED=2
+local function HRP()return LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")end
+local function stopFly() flyOn=false;if flyConn then flyConn:Disconnect();flyConn=nil end;if gyro then gyro:Destroy();gyro=nil end;if vel then vel:Destroy();vel=nil end;flyBtn.Text,flyBtn.BackgroundColor3 = "OFF", Theme.card;local h=Hum();if h then h.PlatformStand=false end end
 local function startFly()
-    local hrp=HRP(); local h=Hum()
-    if not hrp or not h then return end
-    flyOn=true; h.PlatformStand=true
-    gyro,vel = Instance.new("BodyGyro"), Instance.new("BodyVelocity")
-    gyro.P=9000; gyro.MaxTorque=Vector3.new(9e9,9e9,9e9); gyro.CFrame=workspace.CurrentCamera and workspace.CurrentCamera.CFrame or hrp.CFrame; gyro.Parent=hrp
-    vel.MaxForce=Vector3.new(9e9,9e9,9e9); vel.Velocity=Vector3.zero; vel.Parent=hrp
-    flyConn = RS.RenderStepped:Connect(function()
-        if not hrp or not hrp.Parent then stopFly() return end
-        local cam = workspace.CurrentCamera; local cf = cam and cam.CFrame or hrp.CFrame
-        local look, right = cf.LookVector, cf.RightVector
-        local move = Vector3.new()
-        if keys.W then move += look end
-        if keys.S then move -= look end
-        if keys.A then move -= right end
-        if keys.D then move += right end
-        if keys.Up then move += Vector3.new(0,1,0) end
-        if keys.Down then move -= Vector3.new(0,1,0) end
-        local hum = Hum(); local md = hum and hum.MoveDirection or Vector3.zero
-        if md.Magnitude > 0 then
-            local f = Vector3.new(cf.LookVector.X,0,cf.LookVector.Z); local r = Vector3.new(cf.RightVector.X,0,cf.RightVector.Z)
-            if f.Magnitude>0 then f=f.Unit end
-            if r.Magnitude>0 then r=r.Unit end
-            move = (f * md.Z) + (r * md.X)
-        end
-        if move.Magnitude>0 then move=move.Unit end
-        vel.Velocity = move * (FLY_SPEED * 50)
-        gyro.CFrame  = cf
-    end)
-    flyBtn.Text, flyBtn.BackgroundColor3 = "ON", Theme.accA
+  local hrp=HRP();local h=Hum();if not hrp or not h then return end
+  flyOn=true;h.PlatformStand=true
+  gyro,vel=Instance.new("BodyGyro"),Instance.new("BodyVelocity")
+  gyro.P=9000;gyro.MaxTorque=Vector3.new(9e9,9e9,9e9);gyro.CFrame=workspace.CurrentCamera and workspace.CurrentCamera.CFrame or hrp.CFrame;gyro.Parent=hrp
+  vel.MaxForce=Vector3.new(9e9,9e9,9e9);vel.Velocity=Vector3.zero;vel.Parent=hrp
+  flyConn=RS.RenderStepped:Connect(function()
+    if not hrp or not hrp.Parent then stopFly() return end
+    local cam=workspace.CurrentCamera;local cf=cam and cam.CFrame or hrp.CFrame
+    local look,right=cf.LookVector,cf.RightVector
+    local move=Vector3.zero
+    if keys.W then move+=look end;if keys.S then move-=look end
+    if keys.A then move-=right end;if keys.D then move+=right end
+    if keys.Up then move+=Vector3.new(0,1,0)end;if keys.Down then move-=Vector3.new(0,1,0)end
+    local hum=Hum();local md=hum and hum.MoveDirection or Vector3.zero
+    if md.Magnitude>0 then local f=Vector3.new(cf.LookVector.X,0,cf.LookVector.Z);local r=Vector3.new(cf.RightVector.X,0,cf.RightVector.Z)
+      if f.Magnitude>0 then f=f.Unit end;if r.Magnitude>0 then r=r.Unit end;move=(f*md.Z)+(r*md.X)end
+    if move.Magnitude>0 then move=move.Unit end
+    vel.Velocity=move*(FLY_SPEED*50);gyro.CFrame=cf
+  end)
+  flyBtn.Text,flyBtn.BackgroundColor3="ON",Theme.accA
 end
 UIS.InputBegan:Connect(function(i,gp)
-    if gp then return end
-    local k=i.KeyCode
-    if k==Enum.KeyCode.W then keys.W=true
-    elseif k==Enum.KeyCode.A then keys.A=true
-    elseif k==Enum.KeyCode.S then keys.S=true
-    elseif k==Enum.KeyCode.D then keys.D=true
-    elseif k==Enum.KeyCode.Space then keys.Up=true
-    elseif k==Enum.KeyCode.LeftControl or k==Enum.KeyCode.LeftShift then keys.Down=true
-    elseif k==Enum.KeyCode.E then FLY_SPEED = math.clamp(FLY_SPEED+0.5,1,6)
-    elseif k==Enum.KeyCode.Q then FLY_SPEED = math.clamp(FLY_SPEED-0.5,1,6)
-    end
+  if gp then return end;local k=i.KeyCode
+  if k==Enum.KeyCode.W then keys.W=true
+  elseif k==Enum.KeyCode.A then keys.A=true
+  elseif k==Enum.KeyCode.S then keys.S=true
+  elseif k==Enum.KeyCode.D then keys.D=true
+  elseif k==Enum.KeyCode.Space then keys.Up=true
+  elseif k==Enum.KeyCode.LeftControl or k==Enum.KeyCode.LeftShift then keys.Down=true
+  elseif k==Enum.KeyCode.E then FLY_SPEED = math.clamp(FLY_SPEED+0.5,1,6)
+  elseif k==Enum.KeyCode.Q then FLY_SPEED = math.clamp(FLY_SPEED-0.5,1,6)
+  end
 end)
 UIS.InputEnded:Connect(function(i)
-    local k=i.KeyCode
-    if k==Enum.KeyCode.W then keys.W=false
-    elseif k==Enum.KeyCode.A then keys.A=false
-    elseif k==Enum.KeyCode.S then keys.S=false
-    elseif k==Enum.KeyCode.D then keys.D=false
-    elseif k==Enum.KeyCode.Space then keys.Up=false
-    elseif k==Enum.KeyCode.LeftControl or k==Enum.KeyCode.LeftShift then keys.Down=false
-    end
+  local k=i.KeyCode
+  if k==Enum.KeyCode.W then keys.W=false
+  elseif k==Enum.KeyCode.A then keys.A=false
+  elseif k==Enum.KeyCode.S then keys.S=false
+  elseif k==Enum.KeyCode.D then keys.D=false
+  elseif k==Enum.KeyCode.Space then keys.Up=false
+  elseif k==Enum.KeyCode.LeftControl or k==Enum.KeyCode.LeftShift then keys.Down=false
+  end
 end)
 flyBtn.MouseButton1Click:Connect(function() if flyOn then stopFly() else startFly() end end)
 LP.CharacterAdded:Connect(function() if flyOn then task.wait(.2); startFly() end end)
 
 -- ESP
-local _, espLabel, espRight = newRow(54)
-espLabel.Text = "Player ESP"
+local _,espLabel,espRight = newRow(36)
+espLabel.Text="Player ESP"
 local espBtn=Instance.new("TextButton")
-espBtn.Size=UDim2.new(0,86,1,0)
-espBtn.AutoButtonColor=false
+espBtn.Size=UDim2.new(0,52,1,0)
 espBtn.Font=Enum.Font.GothamSemibold
-espBtn.TextSize=14
+espBtn.TextSize=12
 espBtn.TextColor3=Theme.text
 espBtn.BackgroundColor3=Theme.card
 espBtn.Text="OFF"
 espBtn.Parent=espRight
-corner(espBtn,8); stroke(espBtn,Theme.accA,1).Transparency=.35
-local espOn = false; local espConns = {}
-local function clearESP(char)
-    if not char then return end
-    for _,d in ipairs(char:GetChildren()) do
-        if (d:IsA("BillboardGui") and d.Name=="danuu_esp_gui") or (d:IsA("Highlight") and d.Name=="danuu_esp_highlight") then
-            d:Destroy()
-        end
-    end
-end
+corner(espBtn,7); stroke(espBtn,Theme.accA,1).Transparency=.24
+local espOn, espConns = false, {}
+local function clearESP(char)if not char then return end;for _,d in ipairs(char:GetChildren()) do
+  if (d:IsA("BillboardGui") and d.Name=="danuu_esp_gui") or (d:IsA("Highlight") and d.Name=="danuu_esp_highlight") then d:Destroy() end end end
 local function addESP(plr)
-    if not espOn or plr==LP then return end
-    local ch = plr.Character if not ch then return end
-    clearESP(ch)
-    local hl = Instance.new("Highlight")
-    hl.Name="danuu_esp_highlight"
-    hl.FillTransparency=1; hl.OutlineTransparency=0.15
-    hl.OutlineColor=Theme.accA; hl.Parent=ch
-    local hrp = ch:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    local bb = Instance.new("BillboardGui")
-    bb.Name="danuu_esp_gui"; bb.Adornee=hrp; bb.AlwaysOnTop=true; bb.Size=UDim2.new(0,170,0,38)
-    bb.StudsOffsetWorldSpace = Vector3.new(0,2.8,0); bb.Parent = ch
-    local bg = Instance.new("Frame", bb)
-    bg.BackgroundTransparency=.10; bg.BackgroundColor3=Theme.card
-    bg.Size=UDim2.fromScale(1,1); corner(bg,7); stroke(bg,Theme.accA,1).Transparency=.12
-    local nameL = Instance.new("TextLabel")
-    nameL.BackgroundTransparency=1; nameL.Size=UDim2.new(1,0,0,16)
-    nameL.Position=UDim2.fromOffset(0,2)
-    nameL.Font=Enum.Font.GothamSemibold; nameL.TextSize=13; nameL.TextColor3=Theme.text
-    nameL.TextXAlignment=Enum.TextXAlignment.Center; nameL.TextTruncate=Enum.TextTruncate.AtEnd; nameL.Parent=bg
-    local distL = Instance.new("TextLabel")
-    distL.BackgroundTransparency=1; distL.Size=UDim2.new(1,0,0,13)
-    distL.Position=UDim2.fromOffset(0,18)
-    distL.Font=Enum.Font.Gotham; distL.TextSize=12; distL.TextColor3=Theme.text2
-    distL.TextXAlignment=Enum.TextXAlignment.Center
-    distL.TextTruncate = Enum.TextTruncate.AtEnd; distL.Parent=bg
-    task.spawn(function()
-        while espOn and ch.Parent and bb.Parent do
-            nameL.Text = plr.DisplayName or plr.Name
-            local my = HRP()
-            local d = (my and hrp) and (my.Position - hrp.Position).Magnitude or 0
-            distL.Text = string.format("%.0f studs", d)
-            task.wait(0.17)
-        end
-    end)
+  if not espOn or plr==LP then return end;local ch=plr.Character;if not ch then return end;clearESP(ch)
+  local hl=Instance.new("Highlight")hl.Name="danuu_esp_highlight"hl.FillTransparency=1;hl.OutlineTransparency=0.15;hl.OutlineColor=Theme.accA;hl.Parent=ch
+  local hrp=ch:FindFirstChild("HumanoidRootPart");if not hrp then return end
+  local bb=Instance.new("BillboardGui")bb.Name="danuu_esp_gui";bb.Adornee=hrp;bb.AlwaysOnTop=true;bb.Size=UDim2.new(0,120,0,22)
+  bb.StudsOffsetWorldSpace=Vector3.new(0,2.15,0);bb.Parent=ch
+  local bg=Instance.new("Frame",bb)bg.BackgroundTransparency=.13;bg.BackgroundColor3=Theme.card;bg.Size=UDim2.fromScale(1,1);corner(bg,5);stroke(bg,Theme.accA,1).Transparency=.13
+  local nameL=Instance.new("TextLabel")nameL.BackgroundTransparency=1;nameL.Size=UDim2.new(1,0,1,0)
+  nameL.Font=Enum.Font.GothamSemibold;nameL.TextSize=13;nameL.TextColor3=Theme.text
+  nameL.TextXAlignment=Enum.TextXAlignment.Center;nameL.TextTruncate=Enum.TextTruncate.AtEnd;nameL.Parent=bg
 end
 local function setupESP()
-    for _,plr in ipairs(Players:GetPlayers()) do
-        if plr~=LP then
-            espConns[plr]=plr.CharacterAdded:Connect(function() if espOn then task.wait(0.17); addESP(plr) end end)
-            if plr.Character then addESP(plr) end
-        end
+  for _,plr in ipairs(Players:GetPlayers()) do
+    if plr~=LP then
+      espConns[plr]=plr.CharacterAdded:Connect(function()if espOn then task.wait(.17);addESP(plr)end end)
+      if plr.Character then addESP(plr) end
     end
-    espConns["_PlayerAdded"]=Players.PlayerAdded:Connect(function(plr)
-        if plr~=LP then
-            espConns[plr]=plr.CharacterAdded:Connect(function() if espOn then task.wait(0.17); addESP(plr) end end)
-        end
-    end)
-    espConns["_PlayerRemoving"]=Players.PlayerRemoving:Connect(function(plr)
-        if espConns[plr] then espConns[plr]:Disconnect(); espConns[plr]=nil end
-        if plr.Character then clearESP(plr.Character) end
-    end)
+  end
+  espConns["_PlayerAdded"]=Players.PlayerAdded:Connect(function(plr)
+    if plr~=LP then
+      espConns[plr]=plr.CharacterAdded:Connect(function()if espOn then task.wait(.17);addESP(plr)end end)
+    end
+  end)
+  espConns["_PlayerRemoving"]=Players.PlayerRemoving:Connect(function(plr)
+    if espConns[plr] then espConns[plr]:Disconnect();espConns[plr]=nil end
+    if plr.Character then clearESP(plr.Character) end
+  end)
 end
 local function teardownESP()
-    for _,cn in pairs(espConns) do if typeof(cn)=="RBXScriptConnection" then cn:Disconnect() end end
-    table.clear(espConns)
-    for _,plr in ipairs(Players:GetPlayers()) do if plr.Character then clearESP(plr.Character) end end
+  for _,cn in pairs(espConns)do if typeof(cn)=="RBXScriptConnection"then cn:Disconnect()end end
+  table.clear(espConns)
+  for _,plr in ipairs(Players:GetPlayers())do if plr.Character then clearESP(plr.Character)end end
 end
 espBtn.MouseButton1Click:Connect(function()
-    espOn = not espOn
-    espBtn.Text, espBtn.BackgroundColor3 = espOn and "ON" or "OFF", espOn and Theme.accA or Theme.card
-    if espOn then setupESP() else teardownESP() end
+  espOn=not espOn;espBtn.Text,espBtn.BackgroundColor3 = espOn and "ON" or "OFF", espOn and Theme.accA or Theme.card
+  if espOn then setupESP() else teardownESP() end
 end)
